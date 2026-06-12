@@ -9,38 +9,173 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedUdharRouteImport } from './routes/_authenticated/udhar'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedMonthlyRouteImport } from './routes/_authenticated/monthly'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedCashCounterRouteImport } from './routes/_authenticated/cash-counter'
+import { Route as AuthenticatedUdharIndexRouteImport } from './routes/_authenticated/udhar.index'
+import { Route as AuthenticatedUdharCustomerIdRouteImport } from './routes/_authenticated/udhar.$customerId'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedUdharRoute = AuthenticatedUdharRouteImport.update({
+  id: '/udhar',
+  path: '/udhar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMonthlyRoute = AuthenticatedMonthlyRouteImport.update({
+  id: '/monthly',
+  path: '/monthly',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCashCounterRoute =
+  AuthenticatedCashCounterRouteImport.update({
+    id: '/cash-counter',
+    path: '/cash-counter',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedUdharIndexRoute = AuthenticatedUdharIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedUdharRoute,
+} as any)
+const AuthenticatedUdharCustomerIdRoute =
+  AuthenticatedUdharCustomerIdRouteImport.update({
+    id: '/$customerId',
+    path: '/$customerId',
+    getParentRoute: () => AuthenticatedUdharRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/cash-counter': typeof AuthenticatedCashCounterRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/monthly': typeof AuthenticatedMonthlyRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/udhar': typeof AuthenticatedUdharRouteWithChildren
+  '/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
+  '/udhar/': typeof AuthenticatedUdharIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/cash-counter': typeof AuthenticatedCashCounterRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/monthly': typeof AuthenticatedMonthlyRoute
+  '/reports': typeof AuthenticatedReportsRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
+  '/udhar': typeof AuthenticatedUdharIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/cash-counter': typeof AuthenticatedCashCounterRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/monthly': typeof AuthenticatedMonthlyRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/udhar': typeof AuthenticatedUdharRouteWithChildren
+  '/_authenticated/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
+  '/_authenticated/udhar/': typeof AuthenticatedUdharIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/cash-counter'
+    | '/dashboard'
+    | '/monthly'
+    | '/reports'
+    | '/settings'
+    | '/udhar'
+    | '/udhar/$customerId'
+    | '/udhar/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/cash-counter'
+    | '/dashboard'
+    | '/monthly'
+    | '/reports'
+    | '/settings'
+    | '/udhar/$customerId'
+    | '/udhar'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/cash-counter'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/monthly'
+    | '/_authenticated/reports'
+    | '/_authenticated/settings'
+    | '/_authenticated/udhar'
+    | '/_authenticated/udhar/$customerId'
+    | '/_authenticated/udhar/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +183,104 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/udhar': {
+      id: '/_authenticated/udhar'
+      path: '/udhar'
+      fullPath: '/udhar'
+      preLoaderRoute: typeof AuthenticatedUdharRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/monthly': {
+      id: '/_authenticated/monthly'
+      path: '/monthly'
+      fullPath: '/monthly'
+      preLoaderRoute: typeof AuthenticatedMonthlyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/cash-counter': {
+      id: '/_authenticated/cash-counter'
+      path: '/cash-counter'
+      fullPath: '/cash-counter'
+      preLoaderRoute: typeof AuthenticatedCashCounterRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/udhar/': {
+      id: '/_authenticated/udhar/'
+      path: '/'
+      fullPath: '/udhar/'
+      preLoaderRoute: typeof AuthenticatedUdharIndexRouteImport
+      parentRoute: typeof AuthenticatedUdharRoute
+    }
+    '/_authenticated/udhar/$customerId': {
+      id: '/_authenticated/udhar/$customerId'
+      path: '/$customerId'
+      fullPath: '/udhar/$customerId'
+      preLoaderRoute: typeof AuthenticatedUdharCustomerIdRouteImport
+      parentRoute: typeof AuthenticatedUdharRoute
+    }
   }
 }
 
+interface AuthenticatedUdharRouteChildren {
+  AuthenticatedUdharCustomerIdRoute: typeof AuthenticatedUdharCustomerIdRoute
+  AuthenticatedUdharIndexRoute: typeof AuthenticatedUdharIndexRoute
+}
+
+const AuthenticatedUdharRouteChildren: AuthenticatedUdharRouteChildren = {
+  AuthenticatedUdharCustomerIdRoute: AuthenticatedUdharCustomerIdRoute,
+  AuthenticatedUdharIndexRoute: AuthenticatedUdharIndexRoute,
+}
+
+const AuthenticatedUdharRouteWithChildren =
+  AuthenticatedUdharRoute._addFileChildren(AuthenticatedUdharRouteChildren)
+
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCashCounterRoute: typeof AuthenticatedCashCounterRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedMonthlyRoute: typeof AuthenticatedMonthlyRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedUdharRoute: typeof AuthenticatedUdharRouteWithChildren
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCashCounterRoute: AuthenticatedCashCounterRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedMonthlyRoute: AuthenticatedMonthlyRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedUdharRoute: AuthenticatedUdharRouteWithChildren,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
