@@ -14,16 +14,256 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cash_sales: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          operator_name: string | null
+          slip_number: number
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          operator_name?: string | null
+          slip_number?: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          operator_name?: string | null
+          slip_number?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      monthly_bills: {
+        Row: {
+          amount_paid: number
+          billing_month: string
+          client_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          status: string
+          total_amount: number
+          total_quantity: number
+          user_id: string
+        }
+        Insert: {
+          amount_paid?: number
+          billing_month: string
+          client_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          total_amount?: number
+          total_quantity?: number
+          user_id: string
+        }
+        Update: {
+          amount_paid?: number
+          billing_month?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          status?: string
+          total_amount?: number
+          total_quantity?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_bills_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_clients: {
+        Row: {
+          address: string | null
+          created_at: string
+          daily_quantity: number
+          id: string
+          milk_type: string | null
+          mobile: string | null
+          name: string
+          rate_per_liter: number
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          daily_quantity?: number
+          id?: string
+          milk_type?: string | null
+          mobile?: string | null
+          name: string
+          rate_per_liter?: number
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          daily_quantity?: number
+          id?: string
+          milk_type?: string | null
+          mobile?: string | null
+          name?: string
+          rate_per_liter?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string | null
+          id: string
+          language: string
+          shop_address: string | null
+          shop_logo_url: string | null
+          shop_name: string | null
+          shop_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name?: string | null
+          id: string
+          language?: string
+          shop_address?: string | null
+          shop_logo_url?: string | null
+          shop_name?: string | null
+          shop_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          language?: string
+          shop_address?: string | null
+          shop_logo_url?: string | null
+          shop_name?: string | null
+          shop_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      udhar_customers: {
+        Row: {
+          address: string | null
+          created_at: string
+          id: string
+          mobile: string | null
+          name: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          mobile?: string | null
+          name: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          mobile?: string | null
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      udhar_entries: {
+        Row: {
+          amount: number
+          created_at: string
+          customer_id: string
+          entry_date: string
+          entry_type: string
+          id: string
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          customer_id: string
+          entry_date?: string
+          entry_type: string
+          id?: string
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          customer_id?: string
+          entry_date?: string
+          entry_type?: string
+          id?: string
+          notes?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "udhar_entries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "udhar_customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "owner" | "staff"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +390,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["owner", "staff"],
+    },
   },
 } as const
