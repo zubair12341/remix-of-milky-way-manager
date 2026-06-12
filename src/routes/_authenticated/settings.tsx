@@ -86,6 +86,41 @@ function Settings() {
         <Button onClick={changePassword}>{t("save")}</Button>
       </Card>
 
+      <Card className="p-6 space-y-3">
+        <h2 className="text-xl font-bold">Sample Data</h2>
+        <p className="text-sm text-muted-foreground">Load sample customers, clients, and sales for testing.</p>
+        <Button variant="outline" onClick={async () => {
+          const uid = user!.id;
+          // Cash sales — last 10 days
+          const sales = Array.from({ length: 20 }).map((_, i) => {
+            const d = new Date(); d.setDate(d.getDate() - Math.floor(i / 2));
+            return { user_id: uid, amount: 100 + Math.floor(Math.random() * 800), operator_name: "Owner", created_at: d.toISOString() };
+          });
+          await supabase.from("cash_sales").insert(sales);
+
+          const { data: custs } = await supabase.from("udhar_customers").insert([
+            { user_id: uid, name: "Ahmed Khan", mobile: "0300-1234567", address: "Street 5, Lahore" },
+            { user_id: uid, name: "Bilal Hussain", mobile: "0321-7654321" },
+            { user_id: uid, name: "Sara Iqbal", mobile: "0333-1112222" },
+          ]).select();
+          if (custs) {
+            const entries: any[] = [];
+            custs.forEach((c, idx) => {
+              entries.push({ user_id: uid, customer_id: c.id, entry_type: "credit", amount: 1500 + idx * 500, entry_date: new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10), notes: "Milk purchase" });
+              entries.push({ user_id: uid, customer_id: c.id, entry_type: "payment", amount: 500, entry_date: new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10) });
+            });
+            await supabase.from("udhar_entries").insert(entries);
+          }
+
+          await supabase.from("monthly_clients").insert([
+            { user_id: uid, name: "Hotel Royal", mobile: "0300-1110000", daily_quantity: 10, milk_type: "buffalo", rate_per_liter: 220 },
+            { user_id: uid, name: "Café Karachi", mobile: "0300-2220000", daily_quantity: 5, milk_type: "cow", rate_per_liter: 200 },
+            { user_id: uid, name: "Fatima Bibi", mobile: "0300-3330000", daily_quantity: 2, milk_type: "mixed", rate_per_liter: 210 },
+          ]);
+          toast.success("Sample data loaded!");
+        }}>Load sample data</Button>
+      </Card>
+
       <Card className="p-6">
         <Button variant="destructive" onClick={() => signOut()}>{t("signOut")}</Button>
       </Card>
