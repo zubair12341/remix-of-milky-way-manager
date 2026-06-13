@@ -1,96 +1,54 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
+import { useEffect, useState } from "react";
+import { Banknote, Users, CalendarDays, FileBarChart, Settings as SettingsIcon, Milk } from "lucide-react";
 import { useLang } from "@/lib/i18n";
-import { Card } from "@/components/ui/card";
-import { fmtMoney, todayISO } from "@/lib/format";
-import { Banknote, Users, CalendarDays, TrendingUp, ArrowRight } from "lucide-react";
+import { useAuth } from "@/lib/auth";
+import { api } from "@/lib/db";
 
-export const Route = createFileRoute("/_authenticated/dashboard")({
-  component: Dashboard,
-});
+export const Route = createFileRoute("/_authenticated/dashboard")({ component: Dashboard });
+
+const tiles = [
+  { to: "/cash-counter", key: "cashCounter", icon: Banknote, color: "from-primary to-primary/70" },
+  { to: "/udhar", key: "udhar", icon: Users, color: "from-accent to-accent/70" },
+  { to: "/monthly", key: "monthlyClients", icon: CalendarDays, color: "from-success to-success/70" },
+  { to: "/reports", key: "reports", icon: FileBarChart, color: "from-warning to-warning/70" },
+  { to: "/settings", key: "settings", icon: SettingsIcon, color: "from-foreground/80 to-foreground/60" },
+] as const;
 
 function Dashboard() {
+  const { t } = useLang();
   const { user } = useAuth();
-  const { t, dir } = useLang();
+  const [shopName, setShopName] = useState("Milk Shop");
+  const [logo, setLogo] = useState("");
 
-  const { data: stats } = useQuery({
-    queryKey: ["dashboard-stats", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const today = todayISO();
-      const startOfDay = new Date(today + "T00:00:00").toISOString();
-
-      const [cashRes, udharRes, clientsRes, profileRes] = await Promise.all([
-        supabase.from("cash_sales").select("amount").gte("created_at", startOfDay),
-        supabase.from("udhar_entries").select("entry_type, amount"),
-        supabase.from("monthly_clients").select("id", { count: "exact", head: true }),
-        supabase.from("profiles").select("shop_name, full_name").eq("id", user!.id).single(),
-      ]);
-
-      const cashToday = (cashRes.data ?? []).reduce((s, r) => s + Number(r.amount), 0);
-      const totalCredit = (udharRes.data ?? []).filter(r => r.entry_type === "credit").reduce((s, r) => s + Number(r.amount), 0);
-      const totalPayments = (udharRes.data ?? []).filter(r => r.entry_type === "payment").reduce((s, r) => s + Number(r.amount), 0);
-      const outstanding = totalCredit - totalPayments;
-
-      return {
-        cashToday,
-        outstanding,
-        monthlyClients: clientsRes.count ?? 0,
-        shopName: profileRes.data?.shop_name ?? "Shop",
-        fullName: profileRes.data?.full_name ?? "",
-      };
-    },
-  });
-
-  const cards = [
-    { key: "todayCash", value: fmtMoney(stats?.cashToday ?? 0), icon: Banknote, color: "from-primary to-primary/70", to: "/cash-counter" },
-    { key: "outstandingUdhar", value: fmtMoney(stats?.outstanding ?? 0), icon: Users, color: "from-destructive to-destructive/70", to: "/udhar" },
-    { key: "activeMonthlyClients", value: String(stats?.monthlyClients ?? 0), icon: CalendarDays, color: "from-accent to-accent/70", to: "/monthly" },
-    { key: "reports", value: t("thisMonth"), icon: TrendingUp, color: "from-success to-success/70", to: "/reports" },
-  ] as const;
+  useEffect(() => {
+    api().settings.getAll().then(s => { setShopName(s.shop_name || "Milk Shop"); setLogo(s.logo_data_url || ""); });
+  }, []);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm text-muted-foreground">{t("welcomeBack")}</p>
-        <h1 className="text-3xl md:text-4xl font-black">{stats?.shopName ?? t("dashboard")}</h1>
+    <div className="space-y-8">
+      <div className="text-center">
+        {logo
+          ? <img src={logo} alt="logo" className="h-24 mx-auto object-contain mb-3" />
+          : <div className="w-20 h-20 mx-auto rounded-2xl bg-primary text-primary-foreground grid place-items-center mb-3"><Milk className="w-10 h-10" /></div>}
+        <h1 className="text-4xl md:text-5xl font-black">{shopName}</h1>
+        <p className="text-muted-foreground mt-2 text-lg">{t("welcomeBack")}, {user?.username}</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {cards.map((c) => {
-          const Icon = c.icon;
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        {tiles.map(tile => {
+          const Icon = tile.icon;
           return (
-            <Link key={c.key} to={c.to} className="group">
-              <Card className={`p-5 bg-gradient-to-br ${c.color} text-primary-foreground border-0 hover:scale-[1.02] transition-transform`}>
-                <div className="flex items-start justify-between">
-                  <Icon className="w-6 h-6 opacity-80" />
-                  <ArrowRight className={`w-5 h-5 opacity-0 group-hover:opacity-80 transition ${dir === "rtl" ? "rotate-180" : ""}`} />
-                </div>
-                <p className="text-sm opacity-90 mt-4">{t(c.key as any)}</p>
-                <p className="text-2xl md:text-3xl font-black stat-number mt-1">{c.value}</p>
-              </Card>
+            <Link
+              key={tile.to}
+              to={tile.to}
+              className={`group block rounded-2xl bg-gradient-to-br ${tile.color} text-primary-foreground p-8 min-h-[180px] shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all active:scale-95`}
+            >
+              <Icon className="w-12 h-12 mb-4 opacity-90" />
+              <p className="text-2xl md:text-3xl font-black">{t(tile.key as any)}</p>
             </Link>
           );
         })}
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <Link to="/cash-counter">
-          <Card className="p-8 hover:border-primary transition cursor-pointer">
-            <Banknote className="w-10 h-10 text-primary mb-3" />
-            <h3 className="text-xl font-bold">{t("newSale")}</h3>
-            <p className="text-sm text-muted-foreground mt-1">{t("pressEnter")}</p>
-          </Card>
-        </Link>
-        <Link to="/udhar">
-          <Card className="p-8 hover:border-primary transition cursor-pointer">
-            <Users className="w-10 h-10 text-accent mb-3" />
-            <h3 className="text-xl font-bold">{t("udhar")}</h3>
-            <p className="text-sm text-muted-foreground mt-1">{t("addCredit")} • {t("receivePayment")}</p>
-          </Card>
-        </Link>
       </div>
     </div>
   );

@@ -1,122 +1,128 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/lib/auth";
-import { useLang } from "@/lib/i18n";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { fmtMoney, fmtDate, todayISO } from "@/lib/format";
-import { ArrowLeft, Plus, Minus } from "lucide-react";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ArrowDown, ArrowUp, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useLang } from "@/lib/i18n";
+import { api } from "@/lib/db";
+import { fmtMoney, fmtDate, todayISO } from "@/lib/format";
+import { BackButton } from "@/components/BackButton";
 
-export const Route = createFileRoute("/_authenticated/udhar/$customerId")({
-  component: CustomerLedger,
-});
+export const Route = createFileRoute("/_authenticated/udhar/$customerId")({ component: Ledger });
 
-function CustomerLedger() {
+function Ledger() {
   const { customerId } = Route.useParams();
-  const { user } = useAuth();
-  const { t, dir } = useLang();
+  const cid = Number(customerId);
+  const { t } = useLang();
   const qc = useQueryClient();
-  const [amount, setAmount] = useState("");
-  const [notes, setNotes] = useState("");
-  const [date, setDate] = useState(todayISO());
+  const navigate = useNavigate();
 
-  const { data } = useQuery({
-    queryKey: ["udhar-customer", customerId],
-    enabled: !!user,
-    queryFn: async () => {
-      const [c, e] = await Promise.all([
-        supabase.from("udhar_customers").select("*").eq("id", customerId).single(),
-        supabase.from("udhar_entries").select("*").eq("customer_id", customerId).order("entry_date", { ascending: false }).order("created_at", { ascending: false }),
-      ]);
-      return { customer: c.data, entries: e.data ?? [] };
-    },
-  });
+  const { data: customer } = useQuery({ queryKey: ["udhar-customer", cid], queryFn: () => api().udhar.customer(cid) });
+  const { data: entries = [] } = useQuery({ queryKey: ["udhar-entries", cid], queryFn: () => api().udhar.entries(cid) });
 
-  const customer = data?.customer;
-  const entries = data?.entries ?? [];
-  const totalCredit = entries.filter((e) => e.entry_type === "credit").reduce((s, e) => s + Number(e.amount), 0);
-  const totalPaid = entries.filter((e) => e.entry_type === "payment").reduce((s, e) => s + Number(e.amount), 0);
+  const totalCredit = entries.filter(e => e.type === "credit").reduce((a, e) => a + e.amount, 0);
+  const totalPaid = entries.filter(e => e.type === "payment").reduce((a, e) => a + e.amount, 0);
   const balance = totalCredit - totalPaid;
 
-  const addEntry = async (entry_type: "credit" | "payment") => {
-    const v = Number(amount);
-    if (!v || v <= 0) { toast.error("Enter amount"); return; }
-    const { error } = await supabase.from("udhar_entries").insert({
-      user_id: user!.id, customer_id: customerId, entry_type, amount: v, entry_date: date, notes: notes || null,
-    });
-    if (error) { toast.error(error.message); return; }
-    toast.success(t("saved"));
-    setAmount(""); setNotes("");
-    qc.invalidateQueries({ queryKey: ["udhar-customer", customerId] });
+  const [open, setOpen] = useState<null | "credit" | "payment">(null);
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [date, setDate] = useState(todayISO());
+
+  const add = async () => {
+    if (!open || !Number(amount)) return toast.error("Invalid amount");
+    await api().udhar.addEntry({ customerId: cid, type: open, amount: Number(amount), note, entry_date: date });
+    qc.invalidateQueries({ queryKey: ["udhar-entries", cid] });
     qc.invalidateQueries({ queryKey: ["udhar-customers"] });
+    setOpen(null); setAmount(""); setNote(""); setDate(todayISO());
+    toast.success(t("saved"));
   };
 
-  if (!customer) return <p>{t("loading")}</p>;
+  const remove = async () => {
+    if (!confirm("Delete customer and all their entries?")) return;
+    await api().udhar.deleteCustomer(cid);
+    qc.invalidateQueries({ queryKey: ["udhar-customers"] });
+    navigate({ to: "/udhar" });
+  };
 
   return (
     <div className="space-y-6">
-      <Link to="/udhar" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className={`w-4 h-4 ${dir === "rtl" ? "rotate-180" : ""}`} /> {t("back")}
-      </Link>
-
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-black">{customer.name}</h1>
-          {customer.mobile && <p className="text-sm text-muted-foreground">{customer.mobile}</p>}
-          {customer.address && <p className="text-sm text-muted-foreground">{customer.address}</p>}
+      <BackButton />
+      <Card className="p-6">
+        <div className="flex items-start justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-3xl font-black">{customer?.name ?? "…"}</h1>
+            <p className="text-muted-foreground">{customer?.mobile ?? "—"}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-muted-foreground">{t("balance")}</p>
+            <p className={`text-4xl font-black tabular-nums ${balance > 0 ? "text-destructive" : "text-success"}`}>{fmtMoney(balance)}</p>
+          </div>
         </div>
-        <div className="text-right">
-          <p className="text-xs text-muted-foreground">{t("balance")}</p>
-          <p className={`text-3xl font-black stat-number ${balance > 0 ? "text-destructive" : "text-success"}`}>{fmtMoney(balance)}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="p-4"><p className="text-xs text-muted-foreground">{t("totalCredit")}</p><p className="text-lg font-bold">{fmtMoney(totalCredit)}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">{t("totalReceived")}</p><p className="text-lg font-bold">{fmtMoney(totalPaid)}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">{t("remaining")}</p><p className="text-lg font-bold">{fmtMoney(balance)}</p></Card>
-      </div>
-
-      <Card className="p-5 space-y-3">
-        <h3 className="font-bold">{t("addCredit")} / {t("receivePayment")}</h3>
-        <div className="grid sm:grid-cols-3 gap-3">
-          <div><Label>{t("amount")}</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="h-12 text-lg font-bold" /></div>
-          <div><Label>{t("date")}</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-12" /></div>
-          <div><Label>{t("notes")}</Label><Input value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={255} className="h-12" /></div>
-        </div>
-        <div className="flex gap-3">
-          <Button onClick={() => addEntry("credit")} className="flex-1 h-12 font-bold bg-destructive hover:bg-destructive/90 text-destructive-foreground"><Plus className="w-4 h-4 mr-2" />{t("addCredit")}</Button>
-          <Button onClick={() => addEntry("payment")} className="flex-1 h-12 font-bold bg-success hover:bg-success/90 text-success-foreground"><Minus className="w-4 h-4 mr-2" />{t("receivePayment")}</Button>
+        <div className="grid grid-cols-2 gap-3 mt-5">
+          <div className="rounded-lg bg-destructive/10 text-destructive p-3 text-center">
+            <p className="text-xs">{t("totalCredit")}</p>
+            <p className="font-black text-lg">{fmtMoney(totalCredit)}</p>
+          </div>
+          <div className="rounded-lg bg-success/10 text-success p-3 text-center">
+            <p className="text-xs">{t("totalReceived")}</p>
+            <p className="font-black text-lg">{fmtMoney(totalPaid)}</p>
+          </div>
         </div>
       </Card>
 
-      <Card className="p-5">
-        <h3 className="font-bold mb-3">{t("ledger")}</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-muted-foreground border-b">
-              <tr><th className="text-left py-2">{t("date")}</th><th className="text-right py-2">{t("credit")}</th><th className="text-right py-2">{t("payment")}</th><th className="text-left py-2 ps-4">{t("notes")}</th></tr>
-            </thead>
-            <tbody>
-              {entries.length === 0 && <tr><td colSpan={4} className="py-4 text-center text-muted-foreground">{t("noData")}</td></tr>}
-              {entries.map((e) => (
-                <tr key={e.id} className="border-b last:border-0">
-                  <td className="py-2">{fmtDate(e.entry_date)}</td>
-                  <td className="text-right tabular-nums text-destructive font-semibold">{e.entry_type === "credit" ? fmtMoney(e.amount) : ""}</td>
-                  <td className="text-right tabular-nums text-success font-semibold">{e.entry_type === "payment" ? fmtMoney(e.amount) : ""}</td>
-                  <td className="ps-4 text-muted-foreground">{e.notes ?? ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Dialog open={open === "credit"} onOpenChange={(o) => setOpen(o ? "credit" : null)}>
+          <DialogTrigger asChild><Button size="lg" variant="destructive" className="h-16 text-lg font-bold"><ArrowUp className="w-5 h-5 mr-2" />{t("addCredit")}</Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{t("addCredit")}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>{t("amount")}</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus /></div>
+              <div><Label>{t("date")}</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+              <div><Label>{t("notes")}</Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
+            </div>
+            <DialogFooter><Button onClick={add}>{t("save")}</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog open={open === "payment"} onOpenChange={(o) => setOpen(o ? "payment" : null)}>
+          <DialogTrigger asChild><Button size="lg" className="h-16 text-lg font-bold bg-success hover:bg-success/90 text-success-foreground"><ArrowDown className="w-5 h-5 mr-2" />{t("receivePayment")}</Button></DialogTrigger>
+          <DialogContent>
+            <DialogHeader><DialogTitle>{t("receivePayment")}</DialogTitle></DialogHeader>
+            <div className="space-y-3">
+              <div><Label>{t("amount")}</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus /></div>
+              <div><Label>{t("date")}</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+              <div><Label>{t("notes")}</Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
+            </div>
+            <DialogFooter><Button onClick={add}>{t("save")}</Button></DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card className="p-6">
+        <h3 className="font-black text-lg mb-3">{t("ledger")}</h3>
+        {entries.length === 0 ? <p className="text-muted-foreground text-sm">{t("noData")}</p> : (
+          <div className="divide-y">
+            {entries.map(e => (
+              <div key={e.id} className="flex items-center justify-between py-3">
+                <div>
+                  <p className="font-bold">{e.type === "credit" ? t("credit") : t("payment")}</p>
+                  <p className="text-xs text-muted-foreground">{fmtDate(e.entry_date)} {e.note ? "• " + e.note : ""}</p>
+                </div>
+                <p className={`text-lg font-black tabular-nums ${e.type === "credit" ? "text-destructive" : "text-success"}`}>
+                  {e.type === "credit" ? "+" : "−"}{fmtMoney(e.amount)}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
+
+      <Button variant="outline" onClick={remove} className="text-destructive border-destructive/40"><Trash2 className="w-4 h-4 mr-2" /> {t("deleteCustomer")}</Button>
     </div>
   );
 }
