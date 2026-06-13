@@ -1,102 +1,77 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
+import { api } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Milk, Globe } from "lucide-react";
+import { Milk, Globe, LogIn } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/auth")({
-  component: AuthPage,
-});
+export const Route = createFileRoute("/auth")({ ssr: false, component: LoginPage });
 
-function AuthPage() {
-  const { signIn, signUp, user, loading } = useAuth();
-  const { t, lang, setLang } = useLang();
+function LoginPage() {
+  const { signIn, user, loading } = useAuth();
+  const { t, lang, setLang, dir } = useLang();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [shopName, setShopName] = useState("Milk Shop");
+  const [logo, setLogo] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) navigate({ to: "/dashboard", replace: true });
-  }, [user, loading, navigate]);
+    api().settings.getAll().then(s => { setShopName(s.shop_name || "Milk Shop"); setLogo(s.logo_data_url || ""); });
+  }, []);
+
+  useEffect(() => { if (!loading && user) navigate({ to: "/dashboard", replace: true }); }, [user, loading, navigate]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    try {
-      if (mode === "signin") {
-        const { error } = await signIn(email, password);
-        if (error) toast.error(error); else navigate({ to: "/dashboard" });
-      } else {
-        const { error } = await signUp(email, password, fullName);
-        if (error) toast.error(error);
-        else toast.success("Account created! You can sign in now.");
-      }
-    } finally {
-      setBusy(false);
-    }
+    const { error } = await signIn(username.trim(), password);
+    setBusy(false);
+    if (error) toast.error(error);
+    else navigate({ to: "/dashboard" });
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/10 p-4">
+    <div className="min-h-screen grid place-items-center bg-gradient-to-br from-primary/10 via-background to-accent/10 p-4" dir={dir}>
       <div className="w-full max-w-md">
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end mb-3">
           <Button variant="outline" size="sm" onClick={() => setLang(lang === "en" ? "ur" : "en")}>
             <Globe className="w-4 h-4 mr-2" /> {lang === "en" ? "اردو" : "English"}
           </Button>
         </div>
         <Card className="p-8">
-          <div className="flex flex-col items-center text-center mb-6">
-            <div className="w-16 h-16 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center mb-3">
-              <Milk className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-black">{t("appName")}</h1>
-            <p className="text-sm text-muted-foreground mt-1">{t("tagline")}</p>
+          <div className="text-center mb-6">
+            {logo
+              ? <img src={logo} alt="logo" className="h-20 mx-auto object-contain mb-3" />
+              : <div className="w-20 h-20 mx-auto rounded-2xl bg-primary text-primary-foreground grid place-items-center mb-3"><Milk className="w-10 h-10" /></div>}
+            <h1 className="text-2xl font-black">{shopName}</h1>
+            <p className="text-sm text-muted-foreground mt-1">{t("signIn")}</p>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
-            {mode === "signup" && (
-              <div className="space-y-2">
-                <Label>{t("fullName")}</Label>
-                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required minLength={2} maxLength={100} />
-              </div>
-            )}
             <div className="space-y-2">
-              <Label>{t("email")}</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+              <Label>{t("username")}</Label>
+              <Input value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus autoComplete="username" />
             </div>
             <div className="space-y-2">
               <Label>{t("password")}</Label>
-              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6}
-                autoComplete={mode === "signin" ? "current-password" : "new-password"} />
+              <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
             </div>
-            <Button type="submit" className="w-full h-12 text-base font-semibold" disabled={busy}>
-              {busy ? t("loading") : mode === "signin" ? t("signIn") : t("createAccount")}
+            <Button type="submit" className="w-full h-14 text-lg font-bold" disabled={busy}>
+              <LogIn className="w-5 h-5 mr-2" /> {busy ? t("loading") : t("signIn")}
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm">
-            {mode === "signin" ? (
-              <>{t("noAccount")}{" "}
-                <button className="text-primary font-semibold" onClick={() => setMode("signup")}>{t("signUp")}</button>
-              </>
-            ) : (
-              <>{t("haveAccount")}{" "}
-                <button className="text-primary font-semibold" onClick={() => setMode("signin")}>{t("signIn")}</button>
-              </>
-            )}
-          </div>
+          <p className="text-xs text-center text-muted-foreground mt-6">
+            {t("defaultCreds")}: <code className="font-mono">admin / admin123</code>
+          </p>
         </Card>
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          <Link to="/dashboard" className="hover:text-foreground">→ {t("dashboard")}</Link>
-        </p>
       </div>
     </div>
   );
