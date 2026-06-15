@@ -9,6 +9,9 @@ export type UdharEntry = { id: number; customer_id: number; type: "credit" | "pa
 export type MonthlyClient = { id: number; name: string; mobile: string | null; daily_qty: number; milk_type: string; rate: number; active: number; created_at: string };
 export type SettingsMap = Record<string, string>;
 export type PrinterInfo = { name: string; displayName: string; isDefault: boolean; status: number };
+export type Supplier = { id: number; name: string; mobile: string | null; address: string | null; created_at: string; balance: number };
+export type PurchaseEntry = { id: number; supplier_id: number; type: "purchase" | "payment"; amount: number; qty: number | null; rate: number | null; note: string | null; entry_date: string; created_at: string };
+export type PurchaseTotals = { today: number; month: number; all: number };
 
 declare global {
   interface Window {
