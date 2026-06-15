@@ -20,10 +20,18 @@ function UdharList() {
   const qc = useQueryClient();
   const { data: customers = [] } = useQuery({ queryKey: ["udhar-customers"], queryFn: () => api().udhar.customers() });
   const [q, setQ] = useState("");
+  const [balFilter, setBalFilter] = useState<"all" | "owing" | "clear" | "advance">("all");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", mobile: "", address: "" });
 
-  const filtered = customers.filter(c => c.name.toLowerCase().includes(q.toLowerCase()) || (c.mobile || "").includes(q));
+  const ql = q.toLowerCase().trim();
+  const filtered = customers.filter(c => {
+    if (ql && !(c.name.toLowerCase().includes(ql) || (c.mobile || "").includes(ql))) return false;
+    if (balFilter === "owing" && c.balance <= 0) return false;
+    if (balFilter === "clear" && c.balance !== 0) return false;
+    if (balFilter === "advance" && c.balance >= 0) return false;
+    return true;
+  });
   const totalOut = customers.reduce((a, c) => a + Math.max(c.balance, 0), 0);
 
   const add = async () => {
