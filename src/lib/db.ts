@@ -48,6 +48,15 @@ declare global {
         update: (i: Partial<MonthlyClient> & { id: number }) => Promise<{ ok: boolean }>;
         delete: (id: number) => Promise<{ ok: boolean }>;
       };
+      purchases: {
+        suppliers: () => Promise<Supplier[]>;
+        supplier: (id: number) => Promise<Supplier | null>;
+        addSupplier: (i: { name: string; mobile?: string; address?: string }) => Promise<Supplier>;
+        deleteSupplier: (id: number) => Promise<{ ok: boolean }>;
+        entries: (supplierId: number) => Promise<PurchaseEntry[]>;
+        addEntry: (i: { supplierId: number; type: "purchase" | "payment"; amount: number; qty?: number; rate?: number; paid_now?: number; note?: string; entry_date?: string }) => Promise<{ ok: boolean }>;
+        totals: () => Promise<PurchaseTotals>;
+      };
       print: {
         receipt: (p: { invoice_no: number | string; amount: number; date: string; shop_name: string; logo_data_url?: string }) => Promise<{ ok: boolean; error?: string | null }>;
         test: () => Promise<{ ok: boolean; error?: string | null }>;
@@ -70,6 +79,8 @@ type Store = {
   customers: { id: number; name: string; mobile: string | null; address: string | null; created_at: string }[];
   udhar: UdharEntry[];
   monthly: MonthlyClient[];
+  suppliers: { id: number; name: string; mobile: string | null; address: string | null; created_at: string }[];
+  purchases: PurchaseEntry[];
   session: User | null;
   counter: number;
 };
