@@ -36,6 +36,15 @@ contextBridge.exposeInMainWorld("api", {
     update: (input) => invoke("monthly:update", input),
     delete: (id) => invoke("monthly:delete", { id }),
   },
+  purchases: {
+    suppliers: () => invoke("purchases:suppliers"),
+    supplier: (id) => invoke("purchases:supplier", { id }),
+    addSupplier: (input) => invoke("purchases:addSupplier", input),
+    deleteSupplier: (id) => invoke("purchases:deleteSupplier", { id }),
+    entries: (supplierId) => invoke("purchases:entries", { supplierId }),
+    addEntry: (input) => invoke("purchases:addEntry", input),
+    totals: () => invoke("purchases:totals"),
+  },
   print: {
     receipt: (payload) => invoke("print:receipt", payload),
     test: () => invoke("print:testReceipt"),

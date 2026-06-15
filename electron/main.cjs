@@ -68,6 +68,24 @@ CREATE TABLE IF NOT EXISTS monthly_client_transactions (
   qty REAL NOT NULL,
   note TEXT
 );
+CREATE TABLE IF NOT EXISTS suppliers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  mobile TEXT,
+  address TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS purchase_entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK(type IN ('purchase','payment')),
+  amount REAL NOT NULL,
+  qty REAL,
+  rate REAL,
+  note TEXT,
+  entry_date TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
 
 // Seed admin user + defaults
