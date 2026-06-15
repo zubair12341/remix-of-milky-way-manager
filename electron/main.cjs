@@ -199,6 +199,40 @@ ipcMain.handle("monthly:update", (_e, { id, ...c }) => {
 });
 ipcMain.handle("monthly:delete", (_e, { id }) => { db.prepare("DELETE FROM monthly_clients WHERE id = ?").run(id); return { ok: true }; });
 
+// ---- Purchases / Suppliers ----
+ipcMain.handle("purchases:suppliers", () => db.prepare(`
+  SELECT s.*,
+    COALESCE((SELECT SUM(CASE WHEN type='purchase' THEN amount ELSE -amount END) FROM purchase_entries WHERE supplier_id = s.id), 0) balance
+  FROM suppliers s ORDER BY s.name`).all());
+ipcMain.handle("purchases:supplier", (_e, { id }) => db.prepare("SELECT * FROM suppliers WHERE id = ?").get(id));
+ipcMain.handle("purchases:addSupplier", (_e, { name, mobile, address }) => {
+  const info = db.prepare("INSERT INTO suppliers (name, mobile, address) VALUES (?,?,?)").run(name, mobile || null, address || null);
+  return db.prepare("SELECT * FROM suppliers WHERE id = ?").get(info.lastInsertRowid);
+});
+ipcMain.handle("purchases:deleteSupplier", (_e, { id }) => { db.prepare("DELETE FROM suppliers WHERE id = ?").run(id); return { ok: true }; });
+ipcMain.handle("purchases:entries", (_e, { supplierId }) => db.prepare("SELECT * FROM purchase_entries WHERE supplier_id = ? ORDER BY entry_date DESC, id DESC").all(supplierId));
+ipcMain.handle("purchases:addEntry", (_e, { supplierId, type, amount, qty, rate, paid_now, note, entry_date }) => {
+  const date = entry_date || new Date().toISOString().slice(0, 10);
+  const tx = db.transaction(() => {
+    db.prepare("INSERT INTO purchase_entries (supplier_id, type, amount, qty, rate, note, entry_date) VALUES (?,?,?,?,?,?,?)")
+      .run(supplierId, type, Number(amount), qty != null ? Number(qty) : null, rate != null ? Number(rate) : null, note || null, date);
+    if (type === "purchase" && Number(paid_now) > 0) {
+      db.prepare("INSERT INTO purchase_entries (supplier_id, type, amount, note, entry_date) VALUES (?,?,?,?,?)")
+        .run(supplierId, "payment", Number(paid_now), "Paid with purchase", date);
+    }
+  });
+  tx();
+  return { ok: true };
+});
+ipcMain.handle("purchases:totals", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const month = today.slice(0, 7) + "%";
+  const t = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM purchase_entries WHERE type='purchase' AND entry_date = ?").get(today).v;
+  const m = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM purchase_entries WHERE type='purchase' AND entry_date LIKE ?").get(month).v;
+  const a = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM purchase_entries WHERE type='purchase'").get().v;
+  return { today: t, month: m, all: a };
+});
+
 // ---- Backup / Restore / Clear ----
 ipcMain.handle("data:backup", async () => {
   const { canceled, filePath } = await dialog.showSaveDialog({
@@ -231,6 +265,8 @@ ipcMain.handle("data:clearAll", (_e, { currentPassword }) => {
     DELETE FROM udhar_customers;
     DELETE FROM monthly_client_transactions;
     DELETE FROM monthly_clients;
+    DELETE FROM purchase_entries;
+    DELETE FROM suppliers;
   `);
   setSetting("invoice_counter", "1000");
   return { ok: true };
