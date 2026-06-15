@@ -50,8 +50,8 @@ function UdharList() {
         <p className="text-lg">{t("outstandingUdhar")}: <span className="font-black text-destructive">{fmtMoney(totalOut)}</span></p>
       </div>
 
-      <div className="flex gap-2">
-        <Input placeholder={t("search") + "..."} value={q} onChange={(e) => setQ(e.target.value)} className="h-12 text-base" />
+      <div className="flex gap-2 flex-wrap">
+        <Input placeholder={t("search") + "..."} value={q} onChange={(e) => setQ(e.target.value)} className="h-12 text-base flex-1 min-w-[200px]" autoFocus />
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="lg" className="h-12 font-bold"><Plus className="w-5 h-5 mr-1" /> {t("addCustomer")}</Button>
@@ -66,6 +66,24 @@ function UdharList() {
             <DialogFooter><Button onClick={add} className="font-bold">{t("save")}</Button></DialogFooter>
           </DialogContent>
         </Dialog>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {([
+          ["all", "All"],
+          ["owing", "Owing"],
+          ["clear", "Cleared"],
+          ["advance", "Advance"],
+        ] as const).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setBalFilter(k)}
+            className={`h-9 px-4 rounded-md text-sm font-bold border ${balFilter === k ? "bg-primary text-primary-foreground border-primary" : "bg-background border-input hover:bg-muted"}`}
+          >
+            {label}
+          </button>
+        ))}
+        <span className="ml-auto text-sm text-muted-foreground self-center">{filtered.length} of {customers.length}</span>
       </div>
 
       <div className="grid gap-3">
