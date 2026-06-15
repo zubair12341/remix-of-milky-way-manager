@@ -197,6 +197,52 @@ function stubApi(): NonNullable<Window["api"]> {
       },
       async delete(id) { const s = load(); s.monthly = s.monthly.filter(c => c.id !== id); save(s); return { ok: true }; },
     },
+    purchases: {
+      async suppliers() {
+        const s = load();
+        return s.suppliers.map(sup => {
+          const balance = s.purchases.filter(e => e.supplier_id === sup.id).reduce((a, e) => a + (e.type === "purchase" ? e.amount : -e.amount), 0);
+          return { ...sup, balance };
+        });
+      },
+      async supplier(id) { const c = load().suppliers.find(x => x.id === id); return c ? { ...c, balance: 0 } : null; },
+      async addSupplier(i) {
+        const s = load();
+        const row = { id: nextId(s.suppliers), name: i.name, mobile: i.mobile ?? null, address: i.address ?? null, created_at: new Date().toISOString() };
+        s.suppliers.push(row); save(s); return { ...row, balance: 0 };
+      },
+      async deleteSupplier(id) { const s = load(); s.suppliers = s.suppliers.filter(c => c.id !== id); s.purchases = s.purchases.filter(e => e.supplier_id !== id); save(s); return { ok: true }; },
+      async entries(supplierId) { return load().purchases.filter(e => e.supplier_id === supplierId).sort((a, b) => b.entry_date.localeCompare(a.entry_date) || b.id - a.id); },
+      async addEntry(i) {
+        const s = load();
+        const date = i.entry_date ?? new Date().toISOString().slice(0, 10);
+        const now = new Date().toISOString();
+        const row: PurchaseEntry = {
+          id: nextId(s.purchases), supplier_id: i.supplierId, type: i.type,
+          amount: Number(i.amount), qty: i.qty ?? null, rate: i.rate ?? null,
+          note: i.note ?? null, entry_date: date, created_at: now,
+        };
+        s.purchases.push(row);
+        if (i.type === "purchase" && Number(i.paid_now) > 0) {
+          s.purchases.push({
+            id: nextId(s.purchases), supplier_id: i.supplierId, type: "payment",
+            amount: Number(i.paid_now), qty: null, rate: null,
+            note: "Paid with purchase", entry_date: date, created_at: now,
+          });
+        }
+        save(s); return { ok: true };
+      },
+      async totals() {
+        const all = load().purchases.filter(e => e.type === "purchase");
+        const today = new Date().toISOString().slice(0, 10);
+        const month = today.slice(0, 7);
+        return {
+          today: all.filter(e => e.entry_date === today).reduce((a, e) => a + e.amount, 0),
+          month: all.filter(e => e.entry_date.startsWith(month)).reduce((a, e) => a + e.amount, 0),
+          all: all.reduce((a, e) => a + e.amount, 0),
+        };
+      },
+    },
     print: {
       async receipt(p) {
         // Fallback: open print dialog with a small receipt
