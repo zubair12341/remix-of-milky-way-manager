@@ -23,6 +23,9 @@ function Monthly() {
   const { data: clients = [] } = useQuery({ queryKey: ["monthly"], queryFn: () => api().monthly.list() });
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(blank);
+  const [q, setQ] = useState("");
+  const [milkFilter, setMilkFilter] = useState<"all" | "cow" | "buffalo" | "mixed">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
   const add = async () => {
     if (!form.name.trim()) return toast.error("Name required");
@@ -41,11 +44,26 @@ function Monthly() {
     qc.invalidateQueries({ queryKey: ["monthly"] });
   };
 
+  const ql = q.toLowerCase().trim();
+  const filtered = clients.filter(c => {
+    if (ql && !(c.name.toLowerCase().includes(ql) || (c.mobile || "").includes(ql))) return false;
+    if (milkFilter !== "all" && c.milk_type !== milkFilter) return false;
+    if (statusFilter === "active" && !c.active) return false;
+    if (statusFilter === "inactive" && c.active) return false;
+    return true;
+  });
+  const totalMonthly = filtered.reduce((a, c) => a + c.daily_qty * c.rate * 30, 0);
+
+  const filterBtn = "h-9 px-3 rounded-md text-sm font-bold border";
+  const active = "bg-primary text-primary-foreground border-primary";
+  const idle = "bg-background border-input hover:bg-muted";
+
   return (
     <div className="space-y-6">
       <BackButton />
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-3xl md:text-4xl font-black">{t("monthlyClients")}</h1>
+        <p className="text-lg">{t("monthlyBill")}: <span className="font-black text-primary">{fmtMoney(totalMonthly)}</span> <span className="text-sm text-muted-foreground">({filtered.length})</span></p>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="lg" className="h-12 font-bold"><Plus className="w-5 h-5 mr-1" /> {t("addClient")}</Button>
@@ -73,14 +91,28 @@ function Monthly() {
         </Dialog>
       </div>
 
+      <Card className="p-4 space-y-3">
+        <Input placeholder={t("search") + "..."} value={q} onChange={(e) => setQ(e.target.value)} className="h-12 text-base" autoFocus />
+        <div className="flex flex-wrap gap-2">
+          <button className={`${filterBtn} ${milkFilter === "all" ? active : idle}`} onClick={() => setMilkFilter("all")}>All</button>
+          <button className={`${filterBtn} ${milkFilter === "cow" ? active : idle}`} onClick={() => setMilkFilter("cow")}>{t("cow")}</button>
+          <button className={`${filterBtn} ${milkFilter === "buffalo" ? active : idle}`} onClick={() => setMilkFilter("buffalo")}>{t("buffalo")}</button>
+          <button className={`${filterBtn} ${milkFilter === "mixed" ? active : idle}`} onClick={() => setMilkFilter("mixed")}>{t("mixed")}</button>
+          <span className="w-px bg-border mx-1" />
+          <button className={`${filterBtn} ${statusFilter === "all" ? active : idle}`} onClick={() => setStatusFilter("all")}>Any</button>
+          <button className={`${filterBtn} ${statusFilter === "active" ? active : idle}`} onClick={() => setStatusFilter("active")}>Active</button>
+          <button className={`${filterBtn} ${statusFilter === "inactive" ? active : idle}`} onClick={() => setStatusFilter("inactive")}>Inactive</button>
+        </div>
+      </Card>
+
       <div className="grid gap-3">
-        {clients.length === 0 && <Card className="p-8 text-center text-muted-foreground">{t("noData")}</Card>}
-        {clients.map(c => {
+        {filtered.length === 0 && <Card className="p-8 text-center text-muted-foreground">{t("noData")}</Card>}
+        {filtered.map(c => {
           const monthly = c.daily_qty * c.rate * 30;
           return (
             <Card key={c.id} className="p-4 flex items-center gap-4">
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-lg">{c.name}</p>
+                <p className="font-bold text-lg">{c.name} {!c.active && <span className="text-xs font-normal text-muted-foreground">(inactive)</span>}</p>
                 <p className="text-sm text-muted-foreground">{c.mobile || "—"} • {c.daily_qty}L {t(c.milk_type as any)} @ {fmtMoney(c.rate)}/L</p>
               </div>
               <div className="text-right">
