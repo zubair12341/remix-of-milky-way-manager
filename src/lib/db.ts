@@ -102,6 +102,8 @@ function blank(): Store {
     customers: [],
     udhar: [],
     monthly: [],
+    suppliers: [],
+    purchases: [],
     session: null,
     counter: 1000,
   };
