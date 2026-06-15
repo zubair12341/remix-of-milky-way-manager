@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Banknote, Users, CalendarDays, FileBarChart, Settings as SettingsIcon, Milk } from "lucide-react";
+import { Banknote, Users, CalendarDays, FileBarChart, Settings as SettingsIcon, Milk, Truck } from "lucide-react";
 import { useLang } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/db";
@@ -10,6 +10,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({ component: D
 const tiles = [
   { to: "/cash-counter", key: "cashCounter", icon: Banknote, color: "from-primary to-primary/70" },
   { to: "/udhar", key: "udhar", icon: Users, color: "from-accent to-accent/70" },
+  { to: "/purchases", key: "purchases", icon: Truck, color: "from-warning to-warning/70" },
   { to: "/monthly", key: "monthlyClients", icon: CalendarDays, color: "from-success to-success/70" },
   { to: "/reports", key: "reports", icon: FileBarChart, color: "from-warning to-warning/70" },
   { to: "/settings", key: "settings", icon: SettingsIcon, color: "from-foreground/80 to-foreground/60" },

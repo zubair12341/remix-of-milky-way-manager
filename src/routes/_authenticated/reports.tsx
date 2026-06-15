@@ -16,6 +16,7 @@ function Reports() {
 
   const { data: range = [] } = useQuery({ queryKey: ["cash-range", from, to], queryFn: () => api().cash.range(from, to) });
   const { data: all = [] } = useQuery({ queryKey: ["cash-recent-all"], queryFn: () => api().cash.recent(100) });
+  const { data: purchaseTotals } = useQuery({ queryKey: ["purchase-totals"], queryFn: () => api().purchases.totals() });
 
   // Fill missing days
   const days: { day: string; total: number }[] = [];
@@ -58,6 +59,25 @@ function Reports() {
           </ResponsiveContainer>
         </div>
       </Card>
+
+      {purchaseTotals && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="p-5">
+            <p className="text-sm text-muted-foreground">{t("todayPurchase")}</p>
+            <p className="text-2xl font-black tabular-nums text-warning mt-1">{fmtMoney(purchaseTotals.today)}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-sm text-muted-foreground">{t("monthPurchase")} • {t("purchases")}</p>
+            <p className="text-2xl font-black tabular-nums text-warning mt-1">{fmtMoney(purchaseTotals.month)}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-sm text-muted-foreground">{t("profitLast14")}</p>
+            <p className={`text-2xl font-black tabular-nums mt-1 ${total - purchaseTotals.month >= 0 ? "text-success" : "text-destructive"}`}>
+              {fmtMoney(total - purchaseTotals.month)}
+            </p>
+          </Card>
+        </div>
+      )}
 
       <Card className="p-6">
         <h3 className="font-black text-lg mb-3">{t("recentSales")}</h3>

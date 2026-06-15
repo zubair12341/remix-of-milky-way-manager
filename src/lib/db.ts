@@ -9,6 +9,9 @@ export type UdharEntry = { id: number; customer_id: number; type: "credit" | "pa
 export type MonthlyClient = { id: number; name: string; mobile: string | null; daily_qty: number; milk_type: string; rate: number; active: number; created_at: string };
 export type SettingsMap = Record<string, string>;
 export type PrinterInfo = { name: string; displayName: string; isDefault: boolean; status: number };
+export type Supplier = { id: number; name: string; mobile: string | null; address: string | null; created_at: string; balance: number };
+export type PurchaseEntry = { id: number; supplier_id: number; type: "purchase" | "payment"; amount: number; qty: number | null; rate: number | null; note: string | null; entry_date: string; created_at: string };
+export type PurchaseTotals = { today: number; month: number; all: number };
 
 declare global {
   interface Window {
@@ -45,6 +48,15 @@ declare global {
         update: (i: Partial<MonthlyClient> & { id: number }) => Promise<{ ok: boolean }>;
         delete: (id: number) => Promise<{ ok: boolean }>;
       };
+      purchases: {
+        suppliers: () => Promise<Supplier[]>;
+        supplier: (id: number) => Promise<Supplier | null>;
+        addSupplier: (i: { name: string; mobile?: string; address?: string }) => Promise<Supplier>;
+        deleteSupplier: (id: number) => Promise<{ ok: boolean }>;
+        entries: (supplierId: number) => Promise<PurchaseEntry[]>;
+        addEntry: (i: { supplierId: number; type: "purchase" | "payment"; amount: number; qty?: number; rate?: number; paid_now?: number; note?: string; entry_date?: string }) => Promise<{ ok: boolean }>;
+        totals: () => Promise<PurchaseTotals>;
+      };
       print: {
         receipt: (p: { invoice_no: number | string; amount: number; date: string; shop_name: string; logo_data_url?: string }) => Promise<{ ok: boolean; error?: string | null }>;
         test: () => Promise<{ ok: boolean; error?: string | null }>;
@@ -67,6 +79,8 @@ type Store = {
   customers: { id: number; name: string; mobile: string | null; address: string | null; created_at: string }[];
   udhar: UdharEntry[];
   monthly: MonthlyClient[];
+  suppliers: { id: number; name: string; mobile: string | null; address: string | null; created_at: string }[];
+  purchases: PurchaseEntry[];
   session: User | null;
   counter: number;
 };
@@ -88,6 +102,8 @@ function blank(): Store {
     customers: [],
     udhar: [],
     monthly: [],
+    suppliers: [],
+    purchases: [],
     session: null,
     counter: 1000,
   };
@@ -180,6 +196,52 @@ function stubApi(): NonNullable<Window["api"]> {
         save(s); return { ok: true };
       },
       async delete(id) { const s = load(); s.monthly = s.monthly.filter(c => c.id !== id); save(s); return { ok: true }; },
+    },
+    purchases: {
+      async suppliers() {
+        const s = load();
+        return s.suppliers.map(sup => {
+          const balance = s.purchases.filter(e => e.supplier_id === sup.id).reduce((a, e) => a + (e.type === "purchase" ? e.amount : -e.amount), 0);
+          return { ...sup, balance };
+        });
+      },
+      async supplier(id) { const c = load().suppliers.find(x => x.id === id); return c ? { ...c, balance: 0 } : null; },
+      async addSupplier(i) {
+        const s = load();
+        const row = { id: nextId(s.suppliers), name: i.name, mobile: i.mobile ?? null, address: i.address ?? null, created_at: new Date().toISOString() };
+        s.suppliers.push(row); save(s); return { ...row, balance: 0 };
+      },
+      async deleteSupplier(id) { const s = load(); s.suppliers = s.suppliers.filter(c => c.id !== id); s.purchases = s.purchases.filter(e => e.supplier_id !== id); save(s); return { ok: true }; },
+      async entries(supplierId) { return load().purchases.filter(e => e.supplier_id === supplierId).sort((a, b) => b.entry_date.localeCompare(a.entry_date) || b.id - a.id); },
+      async addEntry(i) {
+        const s = load();
+        const date = i.entry_date ?? new Date().toISOString().slice(0, 10);
+        const now = new Date().toISOString();
+        const row: PurchaseEntry = {
+          id: nextId(s.purchases), supplier_id: i.supplierId, type: i.type,
+          amount: Number(i.amount), qty: i.qty ?? null, rate: i.rate ?? null,
+          note: i.note ?? null, entry_date: date, created_at: now,
+        };
+        s.purchases.push(row);
+        if (i.type === "purchase" && Number(i.paid_now) > 0) {
+          s.purchases.push({
+            id: nextId(s.purchases), supplier_id: i.supplierId, type: "payment",
+            amount: Number(i.paid_now), qty: null, rate: null,
+            note: "Paid with purchase", entry_date: date, created_at: now,
+          });
+        }
+        save(s); return { ok: true };
+      },
+      async totals() {
+        const all = load().purchases.filter(e => e.type === "purchase");
+        const today = new Date().toISOString().slice(0, 10);
+        const month = today.slice(0, 7);
+        return {
+          today: all.filter(e => e.entry_date === today).reduce((a, e) => a + e.amount, 0),
+          month: all.filter(e => e.entry_date.startsWith(month)).reduce((a, e) => a + e.amount, 0),
+          all: all.reduce((a, e) => a + e.amount, 0),
+        };
+      },
     },
     print: {
       async receipt(p) {

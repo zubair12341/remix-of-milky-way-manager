@@ -15,11 +15,14 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedUdharRouteImport } from './routes/_authenticated/udhar'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedPurchasesRouteImport } from './routes/_authenticated/purchases'
 import { Route as AuthenticatedMonthlyRouteImport } from './routes/_authenticated/monthly'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCashCounterRouteImport } from './routes/_authenticated/cash-counter'
 import { Route as AuthenticatedUdharIndexRouteImport } from './routes/_authenticated/udhar.index'
+import { Route as AuthenticatedPurchasesIndexRouteImport } from './routes/_authenticated/purchases.index'
 import { Route as AuthenticatedUdharCustomerIdRouteImport } from './routes/_authenticated/udhar.$customerId'
+import { Route as AuthenticatedPurchasesSupplierIdRouteImport } from './routes/_authenticated/purchases.$supplierId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -50,6 +53,11 @@ const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
   path: '/reports',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPurchasesRoute = AuthenticatedPurchasesRouteImport.update({
+  id: '/purchases',
+  path: '/purchases',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMonthlyRoute = AuthenticatedMonthlyRouteImport.update({
   id: '/monthly',
   path: '/monthly',
@@ -71,11 +79,23 @@ const AuthenticatedUdharIndexRoute = AuthenticatedUdharIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedUdharRoute,
 } as any)
+const AuthenticatedPurchasesIndexRoute =
+  AuthenticatedPurchasesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedPurchasesRoute,
+  } as any)
 const AuthenticatedUdharCustomerIdRoute =
   AuthenticatedUdharCustomerIdRouteImport.update({
     id: '/$customerId',
     path: '/$customerId',
     getParentRoute: () => AuthenticatedUdharRoute,
+  } as any)
+const AuthenticatedPurchasesSupplierIdRoute =
+  AuthenticatedPurchasesSupplierIdRouteImport.update({
+    id: '/$supplierId',
+    path: '/$supplierId',
+    getParentRoute: () => AuthenticatedPurchasesRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -84,10 +104,13 @@ export interface FileRoutesByFullPath {
   '/cash-counter': typeof AuthenticatedCashCounterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/monthly': typeof AuthenticatedMonthlyRoute
+  '/purchases': typeof AuthenticatedPurchasesRouteWithChildren
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/udhar': typeof AuthenticatedUdharRouteWithChildren
+  '/purchases/$supplierId': typeof AuthenticatedPurchasesSupplierIdRoute
   '/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
+  '/purchases/': typeof AuthenticatedPurchasesIndexRoute
   '/udhar/': typeof AuthenticatedUdharIndexRoute
 }
 export interface FileRoutesByTo {
@@ -98,7 +121,9 @@ export interface FileRoutesByTo {
   '/monthly': typeof AuthenticatedMonthlyRoute
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/purchases/$supplierId': typeof AuthenticatedPurchasesSupplierIdRoute
   '/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
+  '/purchases': typeof AuthenticatedPurchasesIndexRoute
   '/udhar': typeof AuthenticatedUdharIndexRoute
 }
 export interface FileRoutesById {
@@ -109,10 +134,13 @@ export interface FileRoutesById {
   '/_authenticated/cash-counter': typeof AuthenticatedCashCounterRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/monthly': typeof AuthenticatedMonthlyRoute
+  '/_authenticated/purchases': typeof AuthenticatedPurchasesRouteWithChildren
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/udhar': typeof AuthenticatedUdharRouteWithChildren
+  '/_authenticated/purchases/$supplierId': typeof AuthenticatedPurchasesSupplierIdRoute
   '/_authenticated/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
+  '/_authenticated/purchases/': typeof AuthenticatedPurchasesIndexRoute
   '/_authenticated/udhar/': typeof AuthenticatedUdharIndexRoute
 }
 export interface FileRouteTypes {
@@ -123,10 +151,13 @@ export interface FileRouteTypes {
     | '/cash-counter'
     | '/dashboard'
     | '/monthly'
+    | '/purchases'
     | '/reports'
     | '/settings'
     | '/udhar'
+    | '/purchases/$supplierId'
     | '/udhar/$customerId'
+    | '/purchases/'
     | '/udhar/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -137,7 +168,9 @@ export interface FileRouteTypes {
     | '/monthly'
     | '/reports'
     | '/settings'
+    | '/purchases/$supplierId'
     | '/udhar/$customerId'
+    | '/purchases'
     | '/udhar'
   id:
     | '__root__'
@@ -147,10 +180,13 @@ export interface FileRouteTypes {
     | '/_authenticated/cash-counter'
     | '/_authenticated/dashboard'
     | '/_authenticated/monthly'
+    | '/_authenticated/purchases'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/udhar'
+    | '/_authenticated/purchases/$supplierId'
     | '/_authenticated/udhar/$customerId'
+    | '/_authenticated/purchases/'
     | '/_authenticated/udhar/'
   fileRoutesById: FileRoutesById
 }
@@ -204,6 +240,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/purchases': {
+      id: '/_authenticated/purchases'
+      path: '/purchases'
+      fullPath: '/purchases'
+      preLoaderRoute: typeof AuthenticatedPurchasesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/monthly': {
       id: '/_authenticated/monthly'
       path: '/monthly'
@@ -232,6 +275,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUdharIndexRouteImport
       parentRoute: typeof AuthenticatedUdharRoute
     }
+    '/_authenticated/purchases/': {
+      id: '/_authenticated/purchases/'
+      path: '/'
+      fullPath: '/purchases/'
+      preLoaderRoute: typeof AuthenticatedPurchasesIndexRouteImport
+      parentRoute: typeof AuthenticatedPurchasesRoute
+    }
     '/_authenticated/udhar/$customerId': {
       id: '/_authenticated/udhar/$customerId'
       path: '/$customerId'
@@ -239,8 +289,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUdharCustomerIdRouteImport
       parentRoute: typeof AuthenticatedUdharRoute
     }
+    '/_authenticated/purchases/$supplierId': {
+      id: '/_authenticated/purchases/$supplierId'
+      path: '/$supplierId'
+      fullPath: '/purchases/$supplierId'
+      preLoaderRoute: typeof AuthenticatedPurchasesSupplierIdRouteImport
+      parentRoute: typeof AuthenticatedPurchasesRoute
+    }
   }
 }
+
+interface AuthenticatedPurchasesRouteChildren {
+  AuthenticatedPurchasesSupplierIdRoute: typeof AuthenticatedPurchasesSupplierIdRoute
+  AuthenticatedPurchasesIndexRoute: typeof AuthenticatedPurchasesIndexRoute
+}
+
+const AuthenticatedPurchasesRouteChildren: AuthenticatedPurchasesRouteChildren =
+  {
+    AuthenticatedPurchasesSupplierIdRoute:
+      AuthenticatedPurchasesSupplierIdRoute,
+    AuthenticatedPurchasesIndexRoute: AuthenticatedPurchasesIndexRoute,
+  }
+
+const AuthenticatedPurchasesRouteWithChildren =
+  AuthenticatedPurchasesRoute._addFileChildren(
+    AuthenticatedPurchasesRouteChildren,
+  )
 
 interface AuthenticatedUdharRouteChildren {
   AuthenticatedUdharCustomerIdRoute: typeof AuthenticatedUdharCustomerIdRoute
@@ -259,6 +333,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCashCounterRoute: typeof AuthenticatedCashCounterRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMonthlyRoute: typeof AuthenticatedMonthlyRoute
+  AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRouteWithChildren
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedUdharRoute: typeof AuthenticatedUdharRouteWithChildren
@@ -268,6 +343,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCashCounterRoute: AuthenticatedCashCounterRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMonthlyRoute: AuthenticatedMonthlyRoute,
+  AuthenticatedPurchasesRoute: AuthenticatedPurchasesRouteWithChildren,
   AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedUdharRoute: AuthenticatedUdharRouteWithChildren,
@@ -284,13 +360,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
