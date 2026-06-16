@@ -35,6 +35,9 @@ contextBridge.exposeInMainWorld("api", {
     add: (input) => invoke("monthly:add", input),
     update: (input) => invoke("monthly:update", input),
     delete: (id) => invoke("monthly:delete", { id }),
+    payments: (clientId) => invoke("monthly:payments", { clientId }),
+    addPayment: (input) => invoke("monthly:addPayment", input),
+    deletePayment: (id) => invoke("monthly:deletePayment", { id }),
   },
   purchases: {
     suppliers: () => invoke("purchases:suppliers"),
