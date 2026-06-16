@@ -68,6 +68,15 @@ CREATE TABLE IF NOT EXISTS monthly_client_transactions (
   qty REAL NOT NULL,
   note TEXT
 );
+CREATE TABLE IF NOT EXISTS monthly_payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  client_id INTEGER NOT NULL REFERENCES monthly_clients(id) ON DELETE CASCADE,
+  period TEXT NOT NULL,
+  amount REAL NOT NULL,
+  note TEXT,
+  entry_date TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS suppliers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
