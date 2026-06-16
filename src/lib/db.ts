@@ -48,6 +48,9 @@ declare global {
         add: (i: Partial<MonthlyClient>) => Promise<MonthlyClient>;
         update: (i: Partial<MonthlyClient> & { id: number }) => Promise<{ ok: boolean }>;
         delete: (id: number) => Promise<{ ok: boolean }>;
+        payments: (clientId: number) => Promise<MonthlyPayment[]>;
+        addPayment: (i: { clientId: number; amount: number; period?: string; note?: string; entry_date?: string }) => Promise<MonthlyPayment>;
+        deletePayment: (id: number) => Promise<{ ok: boolean }>;
       };
       purchases: {
         suppliers: () => Promise<Supplier[]>;
