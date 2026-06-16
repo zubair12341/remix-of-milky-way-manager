@@ -192,10 +192,10 @@ function PaymentDialog({ client, onClose }: { client: MonthlyClient; onClose: ()
           <div className="rounded-md border p-2"><p className="text-[10px] uppercase text-muted-foreground">{t("pending")}</p><p className="font-black tabular-nums text-destructive">{fmtMoney(pending)}</p></div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div><Label>{t("amount") || "Amount"}</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus /></div>
+          <div><Label>Amount</Label><Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus /></div>
           <div><Label>{t("period")}</Label><Input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} /></div>
-          <div><Label>{t("date") || "Date"}</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-          <div><Label>{t("note") || "Note"}</Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
+          <div><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+          <div><Label>Note</Label><Input value={note} onChange={(e) => setNote(e.target.value)} /></div>
         </div>
         <Button className="font-bold" onClick={save}>{t("save")}</Button>
 
