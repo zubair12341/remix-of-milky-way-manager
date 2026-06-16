@@ -195,7 +195,15 @@ ipcMain.handle("udhar:addEntry", (_e, { customerId, type, amount, note, entry_da
   return db.prepare("SELECT * FROM udhar_transactions WHERE id = ?").get(info.lastInsertRowid);
 });
 
-ipcMain.handle("monthly:list", () => db.prepare("SELECT * FROM monthly_clients ORDER BY name").all());
+ipcMain.handle("monthly:list", () => {
+  const period = new Date().toISOString().slice(0, 7);
+  return db.prepare(`
+    SELECT c.*,
+      COALESCE((SELECT SUM(amount) FROM monthly_payments WHERE client_id = c.id AND period = ?), 0) paid_this_month,
+      COALESCE((SELECT SUM(amount) FROM monthly_payments WHERE client_id = c.id), 0) paid_total
+    FROM monthly_clients c ORDER BY c.name
+  `).all(period);
+});
 ipcMain.handle("monthly:add", (_e, c) => {
   const info = db.prepare("INSERT INTO monthly_clients (name, mobile, daily_qty, milk_type, rate, active) VALUES (?,?,?,?,?,1)")
     .run(c.name, c.mobile || null, Number(c.daily_qty || 0), c.milk_type || 'cow', Number(c.rate || 0));
@@ -207,6 +215,15 @@ ipcMain.handle("monthly:update", (_e, { id, ...c }) => {
   return { ok: true };
 });
 ipcMain.handle("monthly:delete", (_e, { id }) => { db.prepare("DELETE FROM monthly_clients WHERE id = ?").run(id); return { ok: true }; });
+ipcMain.handle("monthly:payments", (_e, { clientId }) => db.prepare("SELECT * FROM monthly_payments WHERE client_id = ? ORDER BY period DESC, entry_date DESC, id DESC").all(clientId));
+ipcMain.handle("monthly:addPayment", (_e, { clientId, amount, period, note, entry_date }) => {
+  const date = entry_date || new Date().toISOString().slice(0, 10);
+  const p = period || date.slice(0, 7);
+  const info = db.prepare("INSERT INTO monthly_payments (client_id, period, amount, note, entry_date) VALUES (?,?,?,?,?)")
+    .run(clientId, p, Number(amount), note || null, date);
+  return db.prepare("SELECT * FROM monthly_payments WHERE id = ?").get(info.lastInsertRowid);
+});
+ipcMain.handle("monthly:deletePayment", (_e, { id }) => { db.prepare("DELETE FROM monthly_payments WHERE id = ?").run(id); return { ok: true }; });
 
 // ---- Purchases / Suppliers ----
 ipcMain.handle("purchases:suppliers", () => db.prepare(`
