@@ -83,6 +83,7 @@ type Store = {
   customers: { id: number; name: string; mobile: string | null; address: string | null; created_at: string }[];
   udhar: UdharEntry[];
   monthly: MonthlyClient[];
+  monthly_payments: MonthlyPayment[];
   suppliers: { id: number; name: string; mobile: string | null; address: string | null; created_at: string }[];
   purchases: PurchaseEntry[];
   session: User | null;
