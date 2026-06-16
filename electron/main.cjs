@@ -289,6 +289,7 @@ ipcMain.handle("data:clearAll", (_e, { currentPassword }) => {
     DELETE FROM cash_transactions;
     DELETE FROM udhar_transactions;
     DELETE FROM udhar_customers;
+    DELETE FROM monthly_payments;
     DELETE FROM monthly_client_transactions;
     DELETE FROM monthly_clients;
     DELETE FROM purchase_entries;
