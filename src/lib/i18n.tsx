@@ -75,6 +75,11 @@ const dict = {
     cow: "Cow",
     buffalo: "Buffalo",
     mixed: "Mixed",
+    recordPayment: "Record Payment",
+    paymentHistory: "Payment History",
+    paidThisMonth: "Paid This Month",
+    pending: "Pending",
+    period: "Period",
     // Reports
     cashSales: "Cash Sales",
     last14Days: "Last 14 days",
