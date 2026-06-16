@@ -6,7 +6,8 @@ export type User = { id: number; username: string };
 export type CashTxn = { id: number; invoice_no: number; amount: number; created_at: string };
 export type UdharCustomer = { id: number; name: string; mobile: string | null; address: string | null; created_at: string; balance: number };
 export type UdharEntry = { id: number; customer_id: number; type: "credit" | "payment"; amount: number; note: string | null; entry_date: string; created_at: string };
-export type MonthlyClient = { id: number; name: string; mobile: string | null; daily_qty: number; milk_type: string; rate: number; active: number; created_at: string };
+export type MonthlyClient = { id: number; name: string; mobile: string | null; daily_qty: number; milk_type: string; rate: number; active: number; created_at: string; paid_this_month?: number; paid_total?: number };
+export type MonthlyPayment = { id: number; client_id: number; period: string; amount: number; note: string | null; entry_date: string; created_at: string };
 export type SettingsMap = Record<string, string>;
 export type PrinterInfo = { name: string; displayName: string; isDefault: boolean; status: number };
 export type Supplier = { id: number; name: string; mobile: string | null; address: string | null; created_at: string; balance: number };
@@ -47,6 +48,9 @@ declare global {
         add: (i: Partial<MonthlyClient>) => Promise<MonthlyClient>;
         update: (i: Partial<MonthlyClient> & { id: number }) => Promise<{ ok: boolean }>;
         delete: (id: number) => Promise<{ ok: boolean }>;
+        payments: (clientId: number) => Promise<MonthlyPayment[]>;
+        addPayment: (i: { clientId: number; amount: number; period?: string; note?: string; entry_date?: string }) => Promise<MonthlyPayment>;
+        deletePayment: (id: number) => Promise<{ ok: boolean }>;
       };
       purchases: {
         suppliers: () => Promise<Supplier[]>;
@@ -79,6 +83,7 @@ type Store = {
   customers: { id: number; name: string; mobile: string | null; address: string | null; created_at: string }[];
   udhar: UdharEntry[];
   monthly: MonthlyClient[];
+  monthly_payments: MonthlyPayment[];
   suppliers: { id: number; name: string; mobile: string | null; address: string | null; created_at: string }[];
   purchases: PurchaseEntry[];
   session: User | null;
@@ -102,6 +107,7 @@ function blank(): Store {
     customers: [],
     udhar: [],
     monthly: [],
+    monthly_payments: [],
     suppliers: [],
     purchases: [],
     session: null,
@@ -184,7 +190,15 @@ function stubApi(): NonNullable<Window["api"]> {
       },
     },
     monthly: {
-      async list() { return load().monthly; },
+      async list() {
+        const s = load();
+        const period = new Date().toISOString().slice(0, 7);
+        return s.monthly.map(c => ({
+          ...c,
+          paid_this_month: s.monthly_payments.filter(p => p.client_id === c.id && p.period === period).reduce((a, p) => a + p.amount, 0),
+          paid_total: s.monthly_payments.filter(p => p.client_id === c.id).reduce((a, p) => a + p.amount, 0),
+        }));
+      },
       async add(i) {
         const s = load();
         const row: MonthlyClient = { id: nextId(s.monthly), name: i.name ?? "", mobile: i.mobile ?? null, daily_qty: Number(i.daily_qty ?? 0), milk_type: i.milk_type ?? "cow", rate: Number(i.rate ?? 0), active: 1, created_at: new Date().toISOString() };
@@ -195,7 +209,15 @@ function stubApi(): NonNullable<Window["api"]> {
         if (idx >= 0) s.monthly[idx] = { ...s.monthly[idx], ...i } as MonthlyClient;
         save(s); return { ok: true };
       },
-      async delete(id) { const s = load(); s.monthly = s.monthly.filter(c => c.id !== id); save(s); return { ok: true }; },
+      async delete(id) { const s = load(); s.monthly = s.monthly.filter(c => c.id !== id); s.monthly_payments = s.monthly_payments.filter(p => p.client_id !== id); save(s); return { ok: true }; },
+      async payments(clientId) { return load().monthly_payments.filter(p => p.client_id === clientId).sort((a, b) => b.period.localeCompare(a.period) || b.entry_date.localeCompare(a.entry_date) || b.id - a.id); },
+      async addPayment(i) {
+        const s = load();
+        const date = i.entry_date ?? new Date().toISOString().slice(0, 10);
+        const row: MonthlyPayment = { id: nextId(s.monthly_payments), client_id: i.clientId, period: i.period ?? date.slice(0, 7), amount: Number(i.amount), note: i.note ?? null, entry_date: date, created_at: new Date().toISOString() };
+        s.monthly_payments.push(row); save(s); return row;
+      },
+      async deletePayment(id) { const s = load(); s.monthly_payments = s.monthly_payments.filter(p => p.id !== id); save(s); return { ok: true }; },
     },
     purchases: {
       async suppliers() {
