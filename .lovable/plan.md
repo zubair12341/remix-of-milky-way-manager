@@ -1,76 +1,66 @@
-# Offline Electron + SQLite Rewrite
+# Milk Shop — Major Restructure Plan
 
-## What changes
-- Remove Supabase entirely from the runtime path (auth, DB, RLS).
-- Add an Electron main process backed by SQLite (`better-sqlite3`) and `bcryptjs` for password hashing.
-- Expose a typed `window.api` bridge via a preload script; React talks to it instead of Supabase.
-- Rebuild the shell: **no sidebar**. Login → big-card Dashboard → each module has a large **Back** button.
-- Cash Counter: Enter = save + silent thermal print + refocus, all in one keystroke.
-- Tiny 58/80mm receipt (logo, invoice #, date, amount).
-- Settings adds: printer picker, test print, change username/password, backup / restore / **Clear all data** (requires current password).
+This is a large change touching the database, Electron IPC, web stub, several routes, and printing. I'll ship it in **5 phases** so we can verify each piece works before moving on. Confirm the plan (or tell me to reorder/skip phases) and I'll start with Phase 1.
 
-## File layout
+---
 
-```
-electron/
-  main.cjs             # window, SQLite init, IPC handlers, silent print
-  preload.cjs          # exposes window.api
-src/
-  lib/
-    db.ts              # typed wrapper around window.api (+ web stub for Lovable preview)
-    auth.tsx           # local auth context (calls window.api.login)
-    i18n.tsx           # kept
-  components/
-    layout/Shell.tsx   # header (username, lang, logout) — no sidebar
-    BackButton.tsx
-    ReceiptPreview.tsx # small visual; print uses hidden window
-  routes/
-    login.tsx
-    _app/route.tsx     # auth gate, renders Shell + Outlet
-    _app/index.tsx     # Dashboard with big cards
-    _app/cash-counter.tsx
-    _app/udhar.tsx + udhar.$id.tsx
-    _app/monthly.tsx
-    _app/reports.tsx
-    _app/settings.tsx
-```
+## Phase 1 — Database & IPC foundation
 
-Old `src/routes/_authenticated/*`, `src/routes/auth.tsx`, Supabase integration files, and `supabase/` migrations are removed from the user flow (Supabase files left on disk but unreferenced — safe to delete later).
+New SQLite tables (in `electron/main.cjs`) + matching localStorage stub in `src/lib/db.ts` + IPC handlers in `preload.cjs`:
 
-## Database (SQLite)
+- `customer_deliveries` — `id, client_id, date, default_qty, delivered_qty, rate, amount, milk_type, status (delivered|skipped), note`
+- `delivery_pauses` — `id, client_id, start_date, end_date, reason`
+- `customer_payments` — replaces `monthly_payments` (drop period concept; payments are just dated credits against a client)
+- `purchase_categories` — `id, name, is_custom` (seeded: Milk, Dairy, Shop Supplies, Utilities, Transportation, Maintenance, Misc)
+- `purchases` — replaces `purchase_entries`: `id, date, category_id, supplier_id (nullable), item_name, qty, unit, rate, amount, notes, type (purchase|payment), paid_now`
+- `monthly_clients` gets `address`, `status` (already has `active`)
 
-```sql
-users(id, username UNIQUE, password_hash, is_admin, created_at)
-settings(key TEXT PRIMARY KEY, value TEXT)        -- shop_name, logo_data_url, language, printer_name, receipt_width
-cash_transactions(id, invoice_no UNIQUE, amount, created_at)
-udhar_customers(id, name, mobile, address, created_at)
-udhar_transactions(id, customer_id, type CHECK(credit|payment), amount, note, entry_date, created_at)
-monthly_clients(id, name, mobile, daily_qty, milk_type, rate, active, created_at)
-monthly_client_transactions(id, client_id, entry_date, qty, note)
-```
+Migration runs on app start; old `monthly_payments` / `purchase_entries` data is preserved by copying rows where possible.
 
-Seeded on first run: `admin / admin123` (bcrypt-hashed), default settings, invoice counter at 1000.
+## Phase 2 — Monthly Clients rebuild
 
-## Silent printing
-- Settings → printer list pulled from `webContents.getPrintersAsync()`.
-- Print path: main creates an offscreen `BrowserWindow`, loads an HTML receipt, calls `print({ silent: true, deviceName, margins:{marginType:'none'} })`.
-- Receipt HTML: 58mm/80mm width via CSS, monospace, only logo + invoice # + date + amount.
+- Customer master form: name, mobile, address, milk type, default qty, rate, status.
+- **Daily Delivery screen** (`/monthly/deliveries`): date picker → list of active customers with editable Actual Qty, Skip toggle, "Mark All Default", "Save All", "Print Delivery Sheet" (thermal + A4).
+- **Delivery Pause** dialog on each client card.
+- **Customer Ledger** (`/monthly/$clientId`): Date | Description | Debit | Credit | Balance — built from deliveries + payments + adjustments. Date-range filter + Print (full or range).
+- Remove the auto `qty × rate × 30` bill. "Pending" = ledger balance.
 
-## Auth
-- `bcryptjs.hash` on create / change. `bcryptjs.compare` on login.
-- `window.api.session` held in memory by main; React mirrors via context. Logout clears.
-- Change username / password and Clear-all-data all require current password.
+## Phase 3 — Purchases rebuild
 
-## Build / packaging
-- `vite.config.ts`: `base: './'`.
-- `package.json`: add `"main": "electron/main.cjs"`, scripts `electron:dev`, `electron:build` (vite build + @electron/packager).
-- Dev deps: `electron`, `@electron/packager`, `better-sqlite3`, `bcryptjs`.
-- User packages Windows installer themselves (electron-builder on Windows).
+- Purchase entry form with Category dropdown (+ "New Category"), Item, Qty, Unit, Rate, Total, Notes, Date.
+- Suppliers become optional (for credit purchases only).
+- Purchase Ledger view: search, category filter, date filter, print.
+- Daily / Monthly / Range purchase reports.
 
-## Lovable preview behavior
-Preview is browser-only — `window.api` is undefined there, so `src/lib/db.ts` falls back to a **read-only in-memory stub** that surfaces a banner: *"Running in browser preview. Install the Windows build to use the full app."* This keeps the preview from crashing while you iterate on UI.
+## Phase 4 — Reports
 
-## Out of scope (call out)
-- Code signing / NSIS installer — you handle on Windows.
-- Auto-update — not included.
-- Multi-shop / cloud sync — explicitly removed.
+- Sales Report: presets (Today, Yesterday, This Week, This Month, Custom) + Print (thermal + A4).
+- Purchase Report: same filters + Print.
+- **Summary Report** (`/reports/summary`): one page combining Sales (cash + monthly), Udhar (new, collected, outstanding), Monthly (charges, paid, outstanding), Purchases, Expenses by category, and Profit = Sales + Other − Purchases − Expenses. Dedicated Print button with shop logo + name + date range.
+
+## Phase 5 — Printing
+
+Shared print helpers for:
+- Customer Ledger / Monthly Bill
+- Sales Report / Purchase Report / Udhar Ledger
+- Summary Report
+- Daily Delivery Sheet
+
+Each uses the existing silent thermal pipeline when `printer_name` is configured; falls back to A4 browser print otherwise. A4 templates get a clean header (logo + shop name + range).
+
+---
+
+## Technical notes
+
+- All offline / SQLite only — no backend changes.
+- `monthly_payments` table kept read-only for back-compat; new code writes to `customer_payments`.
+- i18n strings (EN/UR) added per phase.
+- No UI changes to Cash Counter, Auth, Settings (silent print + printer wizard already in place).
+
+## Open questions
+
+1. **Old monthly bill data** — should I auto-seed one delivery row per past day from `daily_qty` so existing clients have a starting ledger, or start fresh from today?
+2. **Pause behaviour on Daily Delivery screen** — hide paused clients entirely, or show them greyed-out with a "Paused" badge?
+3. **Expenses vs Purchases** — treat Utilities/Transport/Maintenance as purchase categories (single table, as written above) or split into a separate `expenses` table? Single table is simpler; split is cleaner on reports.
+
+Reply with answers (or "go") and I'll start Phase 1.
