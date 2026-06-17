@@ -1,5 +1,4 @@
 const { contextBridge, ipcRenderer } = require("electron");
-
 const invoke = (ch, payload) => ipcRenderer.invoke(ch, payload);
 
 contextBridge.exposeInMainWorld("api", {
@@ -8,8 +7,7 @@ contextBridge.exposeInMainWorld("api", {
     login: (username, password) => invoke("auth:login", { username, password }),
     session: () => invoke("auth:session"),
     logout: () => invoke("auth:logout"),
-    change: (currentPassword, newUsername, newPassword) =>
-      invoke("auth:change", { currentPassword, newUsername, newPassword }),
+    change: (currentPassword, newUsername, newPassword) => invoke("auth:change", { currentPassword, newUsername, newPassword }),
   },
   settings: {
     getAll: () => invoke("settings:getAll"),
@@ -21,6 +19,7 @@ contextBridge.exposeInMainWorld("api", {
     recent: (limit) => invoke("cash:recent", { limit }),
     todayTotal: () => invoke("cash:todayTotal"),
     range: (from, to) => invoke("cash:range", { from, to }),
+    sum: (from, to) => invoke("cash:sum", { from, to }),
   },
   udhar: {
     customers: () => invoke("udhar:customers"),
@@ -29,28 +28,45 @@ contextBridge.exposeInMainWorld("api", {
     deleteCustomer: (id) => invoke("udhar:deleteCustomer", { id }),
     entries: (customerId) => invoke("udhar:entries", { customerId }),
     addEntry: (input) => invoke("udhar:addEntry", input),
+    totals: (from, to) => invoke("udhar:totals", { from, to }),
   },
   monthly: {
     list: () => invoke("monthly:list"),
+    client: (id) => invoke("monthly:client", { id }),
     add: (input) => invoke("monthly:add", input),
     update: (input) => invoke("monthly:update", input),
     delete: (id) => invoke("monthly:delete", { id }),
+    deliveries: (from, to, clientId) => invoke("monthly:deliveries", { from, to, clientId }),
+    deliveriesForDate: (date) => invoke("monthly:deliveriesForDate", { date }),
+    saveDeliveries: (date, rows) => invoke("monthly:saveDeliveries", { date, rows }),
+    deleteDelivery: (id) => invoke("monthly:deleteDelivery", { id }),
+    pauses: (clientId) => invoke("monthly:pauses", { clientId }),
+    addPause: (input) => invoke("monthly:addPause", input),
+    deletePause: (id) => invoke("monthly:deletePause", { id }),
     payments: (clientId) => invoke("monthly:payments", { clientId }),
     addPayment: (input) => invoke("monthly:addPayment", input),
     deletePayment: (id) => invoke("monthly:deletePayment", { id }),
+    totals: (from, to) => invoke("monthly:totals", { from, to }),
   },
   purchases: {
     suppliers: () => invoke("purchases:suppliers"),
     supplier: (id) => invoke("purchases:supplier", { id }),
     addSupplier: (input) => invoke("purchases:addSupplier", input),
     deleteSupplier: (id) => invoke("purchases:deleteSupplier", { id }),
-    entries: (supplierId) => invoke("purchases:entries", { supplierId }),
+    supplierEntries: (supplierId) => invoke("purchases:supplierEntries", { supplierId }),
+    categories: () => invoke("purchases:categories"),
+    addCategory: (input) => invoke("purchases:addCategory", input),
+    deleteCategory: (id) => invoke("purchases:deleteCategory", { id }),
+    entries: (filters) => invoke("purchases:entries", filters || {}),
     addEntry: (input) => invoke("purchases:addEntry", input),
-    totals: () => invoke("purchases:totals"),
+    deleteEntry: (id) => invoke("purchases:deleteEntry", { id }),
+    totals: (args) => invoke("purchases:totals", args || {}),
+    expensesByCategory: (from, to) => invoke("purchases:expensesByCategory", { from, to }),
   },
   print: {
     receipt: (payload) => invoke("print:receipt", payload),
     test: () => invoke("print:testReceipt"),
+    html: (html, thermal) => invoke("print:html", { html, thermal: !!thermal }),
   },
   data: {
     backup: () => invoke("data:backup"),
