@@ -20,9 +20,15 @@ import { Route as AuthenticatedMonthlyRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCashCounterRouteImport } from './routes/_authenticated/cash-counter'
 import { Route as AuthenticatedUdharIndexRouteImport } from './routes/_authenticated/udhar.index'
+import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports.index'
 import { Route as AuthenticatedPurchasesIndexRouteImport } from './routes/_authenticated/purchases.index'
+import { Route as AuthenticatedMonthlyIndexRouteImport } from './routes/_authenticated/monthly.index'
 import { Route as AuthenticatedUdharCustomerIdRouteImport } from './routes/_authenticated/udhar.$customerId'
+import { Route as AuthenticatedReportsSummaryRouteImport } from './routes/_authenticated/reports.summary'
+import { Route as AuthenticatedPurchasesSuppliersRouteImport } from './routes/_authenticated/purchases.suppliers'
 import { Route as AuthenticatedPurchasesSupplierIdRouteImport } from './routes/_authenticated/purchases.$supplierId'
+import { Route as AuthenticatedMonthlyDeliveriesRouteImport } from './routes/_authenticated/monthly.deliveries'
+import { Route as AuthenticatedMonthlyClientIdRouteImport } from './routes/_authenticated/monthly.$clientId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -79,11 +85,23 @@ const AuthenticatedUdharIndexRoute = AuthenticatedUdharIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedUdharRoute,
 } as any)
+const AuthenticatedReportsIndexRoute =
+  AuthenticatedReportsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedReportsRoute,
+  } as any)
 const AuthenticatedPurchasesIndexRoute =
   AuthenticatedPurchasesIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedPurchasesRoute,
+  } as any)
+const AuthenticatedMonthlyIndexRoute =
+  AuthenticatedMonthlyIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedMonthlyRoute,
   } as any)
 const AuthenticatedUdharCustomerIdRoute =
   AuthenticatedUdharCustomerIdRouteImport.update({
@@ -91,11 +109,35 @@ const AuthenticatedUdharCustomerIdRoute =
     path: '/$customerId',
     getParentRoute: () => AuthenticatedUdharRoute,
   } as any)
+const AuthenticatedReportsSummaryRoute =
+  AuthenticatedReportsSummaryRouteImport.update({
+    id: '/summary',
+    path: '/summary',
+    getParentRoute: () => AuthenticatedReportsRoute,
+  } as any)
+const AuthenticatedPurchasesSuppliersRoute =
+  AuthenticatedPurchasesSuppliersRouteImport.update({
+    id: '/suppliers',
+    path: '/suppliers',
+    getParentRoute: () => AuthenticatedPurchasesRoute,
+  } as any)
 const AuthenticatedPurchasesSupplierIdRoute =
   AuthenticatedPurchasesSupplierIdRouteImport.update({
     id: '/$supplierId',
     path: '/$supplierId',
     getParentRoute: () => AuthenticatedPurchasesRoute,
+  } as any)
+const AuthenticatedMonthlyDeliveriesRoute =
+  AuthenticatedMonthlyDeliveriesRouteImport.update({
+    id: '/deliveries',
+    path: '/deliveries',
+    getParentRoute: () => AuthenticatedMonthlyRoute,
+  } as any)
+const AuthenticatedMonthlyClientIdRoute =
+  AuthenticatedMonthlyClientIdRouteImport.update({
+    id: '/$clientId',
+    path: '/$clientId',
+    getParentRoute: () => AuthenticatedMonthlyRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -103,14 +145,20 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/cash-counter': typeof AuthenticatedCashCounterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/monthly': typeof AuthenticatedMonthlyRoute
+  '/monthly': typeof AuthenticatedMonthlyRouteWithChildren
   '/purchases': typeof AuthenticatedPurchasesRouteWithChildren
-  '/reports': typeof AuthenticatedReportsRoute
+  '/reports': typeof AuthenticatedReportsRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
   '/udhar': typeof AuthenticatedUdharRouteWithChildren
+  '/monthly/$clientId': typeof AuthenticatedMonthlyClientIdRoute
+  '/monthly/deliveries': typeof AuthenticatedMonthlyDeliveriesRoute
   '/purchases/$supplierId': typeof AuthenticatedPurchasesSupplierIdRoute
+  '/purchases/suppliers': typeof AuthenticatedPurchasesSuppliersRoute
+  '/reports/summary': typeof AuthenticatedReportsSummaryRoute
   '/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
+  '/monthly/': typeof AuthenticatedMonthlyIndexRoute
   '/purchases/': typeof AuthenticatedPurchasesIndexRoute
+  '/reports/': typeof AuthenticatedReportsIndexRoute
   '/udhar/': typeof AuthenticatedUdharIndexRoute
 }
 export interface FileRoutesByTo {
@@ -118,12 +166,16 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/cash-counter': typeof AuthenticatedCashCounterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/monthly': typeof AuthenticatedMonthlyRoute
-  '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/monthly/$clientId': typeof AuthenticatedMonthlyClientIdRoute
+  '/monthly/deliveries': typeof AuthenticatedMonthlyDeliveriesRoute
   '/purchases/$supplierId': typeof AuthenticatedPurchasesSupplierIdRoute
+  '/purchases/suppliers': typeof AuthenticatedPurchasesSuppliersRoute
+  '/reports/summary': typeof AuthenticatedReportsSummaryRoute
   '/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
+  '/monthly': typeof AuthenticatedMonthlyIndexRoute
   '/purchases': typeof AuthenticatedPurchasesIndexRoute
+  '/reports': typeof AuthenticatedReportsIndexRoute
   '/udhar': typeof AuthenticatedUdharIndexRoute
 }
 export interface FileRoutesById {
@@ -133,14 +185,20 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/cash-counter': typeof AuthenticatedCashCounterRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/monthly': typeof AuthenticatedMonthlyRoute
+  '/_authenticated/monthly': typeof AuthenticatedMonthlyRouteWithChildren
   '/_authenticated/purchases': typeof AuthenticatedPurchasesRouteWithChildren
-  '/_authenticated/reports': typeof AuthenticatedReportsRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/udhar': typeof AuthenticatedUdharRouteWithChildren
+  '/_authenticated/monthly/$clientId': typeof AuthenticatedMonthlyClientIdRoute
+  '/_authenticated/monthly/deliveries': typeof AuthenticatedMonthlyDeliveriesRoute
   '/_authenticated/purchases/$supplierId': typeof AuthenticatedPurchasesSupplierIdRoute
+  '/_authenticated/purchases/suppliers': typeof AuthenticatedPurchasesSuppliersRoute
+  '/_authenticated/reports/summary': typeof AuthenticatedReportsSummaryRoute
   '/_authenticated/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
+  '/_authenticated/monthly/': typeof AuthenticatedMonthlyIndexRoute
   '/_authenticated/purchases/': typeof AuthenticatedPurchasesIndexRoute
+  '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/udhar/': typeof AuthenticatedUdharIndexRoute
 }
 export interface FileRouteTypes {
@@ -155,9 +213,15 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/udhar'
+    | '/monthly/$clientId'
+    | '/monthly/deliveries'
     | '/purchases/$supplierId'
+    | '/purchases/suppliers'
+    | '/reports/summary'
     | '/udhar/$customerId'
+    | '/monthly/'
     | '/purchases/'
+    | '/reports/'
     | '/udhar/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -165,12 +229,16 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cash-counter'
     | '/dashboard'
-    | '/monthly'
-    | '/reports'
     | '/settings'
+    | '/monthly/$clientId'
+    | '/monthly/deliveries'
     | '/purchases/$supplierId'
+    | '/purchases/suppliers'
+    | '/reports/summary'
     | '/udhar/$customerId'
+    | '/monthly'
     | '/purchases'
+    | '/reports'
     | '/udhar'
   id:
     | '__root__'
@@ -184,9 +252,15 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/udhar'
+    | '/_authenticated/monthly/$clientId'
+    | '/_authenticated/monthly/deliveries'
     | '/_authenticated/purchases/$supplierId'
+    | '/_authenticated/purchases/suppliers'
+    | '/_authenticated/reports/summary'
     | '/_authenticated/udhar/$customerId'
+    | '/_authenticated/monthly/'
     | '/_authenticated/purchases/'
+    | '/_authenticated/reports/'
     | '/_authenticated/udhar/'
   fileRoutesById: FileRoutesById
 }
@@ -275,12 +349,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUdharIndexRouteImport
       parentRoute: typeof AuthenticatedUdharRoute
     }
+    '/_authenticated/reports/': {
+      id: '/_authenticated/reports/'
+      path: '/'
+      fullPath: '/reports/'
+      preLoaderRoute: typeof AuthenticatedReportsIndexRouteImport
+      parentRoute: typeof AuthenticatedReportsRoute
+    }
     '/_authenticated/purchases/': {
       id: '/_authenticated/purchases/'
       path: '/'
       fullPath: '/purchases/'
       preLoaderRoute: typeof AuthenticatedPurchasesIndexRouteImport
       parentRoute: typeof AuthenticatedPurchasesRoute
+    }
+    '/_authenticated/monthly/': {
+      id: '/_authenticated/monthly/'
+      path: '/'
+      fullPath: '/monthly/'
+      preLoaderRoute: typeof AuthenticatedMonthlyIndexRouteImport
+      parentRoute: typeof AuthenticatedMonthlyRoute
     }
     '/_authenticated/udhar/$customerId': {
       id: '/_authenticated/udhar/$customerId'
@@ -289,6 +377,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUdharCustomerIdRouteImport
       parentRoute: typeof AuthenticatedUdharRoute
     }
+    '/_authenticated/reports/summary': {
+      id: '/_authenticated/reports/summary'
+      path: '/summary'
+      fullPath: '/reports/summary'
+      preLoaderRoute: typeof AuthenticatedReportsSummaryRouteImport
+      parentRoute: typeof AuthenticatedReportsRoute
+    }
+    '/_authenticated/purchases/suppliers': {
+      id: '/_authenticated/purchases/suppliers'
+      path: '/suppliers'
+      fullPath: '/purchases/suppliers'
+      preLoaderRoute: typeof AuthenticatedPurchasesSuppliersRouteImport
+      parentRoute: typeof AuthenticatedPurchasesRoute
+    }
     '/_authenticated/purchases/$supplierId': {
       id: '/_authenticated/purchases/$supplierId'
       path: '/$supplierId'
@@ -296,11 +398,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPurchasesSupplierIdRouteImport
       parentRoute: typeof AuthenticatedPurchasesRoute
     }
+    '/_authenticated/monthly/deliveries': {
+      id: '/_authenticated/monthly/deliveries'
+      path: '/deliveries'
+      fullPath: '/monthly/deliveries'
+      preLoaderRoute: typeof AuthenticatedMonthlyDeliveriesRouteImport
+      parentRoute: typeof AuthenticatedMonthlyRoute
+    }
+    '/_authenticated/monthly/$clientId': {
+      id: '/_authenticated/monthly/$clientId'
+      path: '/$clientId'
+      fullPath: '/monthly/$clientId'
+      preLoaderRoute: typeof AuthenticatedMonthlyClientIdRouteImport
+      parentRoute: typeof AuthenticatedMonthlyRoute
+    }
   }
 }
 
+interface AuthenticatedMonthlyRouteChildren {
+  AuthenticatedMonthlyClientIdRoute: typeof AuthenticatedMonthlyClientIdRoute
+  AuthenticatedMonthlyDeliveriesRoute: typeof AuthenticatedMonthlyDeliveriesRoute
+  AuthenticatedMonthlyIndexRoute: typeof AuthenticatedMonthlyIndexRoute
+}
+
+const AuthenticatedMonthlyRouteChildren: AuthenticatedMonthlyRouteChildren = {
+  AuthenticatedMonthlyClientIdRoute: AuthenticatedMonthlyClientIdRoute,
+  AuthenticatedMonthlyDeliveriesRoute: AuthenticatedMonthlyDeliveriesRoute,
+  AuthenticatedMonthlyIndexRoute: AuthenticatedMonthlyIndexRoute,
+}
+
+const AuthenticatedMonthlyRouteWithChildren =
+  AuthenticatedMonthlyRoute._addFileChildren(AuthenticatedMonthlyRouteChildren)
+
 interface AuthenticatedPurchasesRouteChildren {
   AuthenticatedPurchasesSupplierIdRoute: typeof AuthenticatedPurchasesSupplierIdRoute
+  AuthenticatedPurchasesSuppliersRoute: typeof AuthenticatedPurchasesSuppliersRoute
   AuthenticatedPurchasesIndexRoute: typeof AuthenticatedPurchasesIndexRoute
 }
 
@@ -308,6 +440,7 @@ const AuthenticatedPurchasesRouteChildren: AuthenticatedPurchasesRouteChildren =
   {
     AuthenticatedPurchasesSupplierIdRoute:
       AuthenticatedPurchasesSupplierIdRoute,
+    AuthenticatedPurchasesSuppliersRoute: AuthenticatedPurchasesSuppliersRoute,
     AuthenticatedPurchasesIndexRoute: AuthenticatedPurchasesIndexRoute,
   }
 
@@ -315,6 +448,19 @@ const AuthenticatedPurchasesRouteWithChildren =
   AuthenticatedPurchasesRoute._addFileChildren(
     AuthenticatedPurchasesRouteChildren,
   )
+
+interface AuthenticatedReportsRouteChildren {
+  AuthenticatedReportsSummaryRoute: typeof AuthenticatedReportsSummaryRoute
+  AuthenticatedReportsIndexRoute: typeof AuthenticatedReportsIndexRoute
+}
+
+const AuthenticatedReportsRouteChildren: AuthenticatedReportsRouteChildren = {
+  AuthenticatedReportsSummaryRoute: AuthenticatedReportsSummaryRoute,
+  AuthenticatedReportsIndexRoute: AuthenticatedReportsIndexRoute,
+}
+
+const AuthenticatedReportsRouteWithChildren =
+  AuthenticatedReportsRoute._addFileChildren(AuthenticatedReportsRouteChildren)
 
 interface AuthenticatedUdharRouteChildren {
   AuthenticatedUdharCustomerIdRoute: typeof AuthenticatedUdharCustomerIdRoute
@@ -332,9 +478,9 @@ const AuthenticatedUdharRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCashCounterRoute: typeof AuthenticatedCashCounterRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedMonthlyRoute: typeof AuthenticatedMonthlyRoute
+  AuthenticatedMonthlyRoute: typeof AuthenticatedMonthlyRouteWithChildren
   AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRouteWithChildren
-  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedUdharRoute: typeof AuthenticatedUdharRouteWithChildren
 }
@@ -342,9 +488,9 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCashCounterRoute: AuthenticatedCashCounterRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedMonthlyRoute: AuthenticatedMonthlyRoute,
+  AuthenticatedMonthlyRoute: AuthenticatedMonthlyRouteWithChildren,
   AuthenticatedPurchasesRoute: AuthenticatedPurchasesRouteWithChildren,
-  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedUdharRoute: AuthenticatedUdharRouteWithChildren,
 }
@@ -360,13 +506,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
