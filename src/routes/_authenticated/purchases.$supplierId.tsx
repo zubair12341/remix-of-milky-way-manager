@@ -23,7 +23,7 @@ function SupplierDetail() {
   const navigate = useNavigate();
 
   const { data: supplier } = useQuery({ queryKey: ["supplier", sid], queryFn: () => api().purchases.supplier(sid) });
-  const { data: entries = [] } = useQuery({ queryKey: ["supplier-entries", sid], queryFn: () => api().purchases.entries(sid) });
+  const { data: entries = [] } = useQuery({ queryKey: ["supplier-entries", sid], queryFn: () => api().purchases.supplierEntries(sid) });
 
   const totalPurchase = entries.filter(e => e.type === "purchase").reduce((a, e) => a + e.amount, 0);
   const totalPaid = entries.filter(e => e.type === "payment").reduce((a, e) => a + e.amount, 0);
@@ -31,6 +31,7 @@ function SupplierDetail() {
 
   const [pOpen, setPOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [item, setItem] = useState("");
   const [qty, setQty] = useState("");
   const [rate, setRate] = useState("");
   const [paidNow, setPaidNow] = useState("");
@@ -44,24 +45,21 @@ function SupplierDetail() {
     const q = Number(qty), r = Number(rate);
     if (!q || !r) return toast.error(t("invalidAmount"));
     await api().purchases.addEntry({
-      supplierId: sid, type: "purchase",
-      qty: q, rate: r, amount: q * r,
-      paid_now: Number(paidNow) || 0,
-      note, entry_date: date,
+      supplierId: sid, type: "purchase", itemName: item || "Milk", qty: q, rate: r, amount: q * r,
+      paidNow: Number(paidNow) || 0, note, entry_date: date,
     });
     qc.invalidateQueries({ queryKey: ["supplier-entries", sid] });
     qc.invalidateQueries({ queryKey: ["suppliers"] });
     qc.invalidateQueries({ queryKey: ["purchase-totals"] });
-    setPOpen(false); setQty(""); setRate(""); setPaidNow(""); setNote(""); setDate(todayISO());
+    qc.invalidateQueries({ queryKey: ["purchases"] });
+    setPOpen(false); setItem(""); setQty(""); setRate(""); setPaidNow(""); setNote(""); setDate(todayISO());
     toast.success(t("saved"));
   };
 
   const addPayment = async () => {
     const a = Number(payAmount);
     if (!a) return toast.error(t("invalidAmount"));
-    await api().purchases.addEntry({
-      supplierId: sid, type: "payment", amount: a, note, entry_date: date,
-    });
+    await api().purchases.addEntry({ supplierId: sid, type: "payment", amount: a, note, entry_date: date });
     qc.invalidateQueries({ queryKey: ["supplier-entries", sid] });
     qc.invalidateQueries({ queryKey: ["suppliers"] });
     setPayOpen(false); setPayAmount(""); setNote(""); setDate(todayISO());
@@ -72,7 +70,7 @@ function SupplierDetail() {
     if (!confirm("Delete supplier and all entries?")) return;
     await api().purchases.deleteSupplier(sid);
     qc.invalidateQueries({ queryKey: ["suppliers"] });
-    navigate({ to: "/purchases" });
+    navigate({ to: "/purchases/suppliers" });
   };
 
   return (
@@ -111,8 +109,9 @@ function SupplierDetail() {
           <DialogContent>
             <DialogHeader><DialogTitle>{t("addPurchase")}</DialogTitle></DialogHeader>
             <div className="space-y-3">
+              <div><Label>{t("item")}</Label><Input value={item} onChange={(e) => setItem(e.target.value)} placeholder="Milk" autoFocus /></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><Label>{t("quantityL")}</Label><Input type="number" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} autoFocus /></div>
+                <div><Label>{t("quantityL")}</Label><Input type="number" inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} /></div>
                 <div><Label>{t("ratePerLiter")}</Label><Input type="number" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></div>
               </div>
               <div className="rounded-lg bg-muted p-3 flex justify-between items-baseline">
@@ -153,8 +152,8 @@ function SupplierDetail() {
               <div key={e.id} className="flex items-center justify-between py-3 gap-3">
                 <div className="min-w-0">
                   <p className="font-bold">
-                    {e.type === "purchase" ? t("purchase") : t("payment")}
-                    {e.type === "purchase" && e.qty ? <span className="ml-2 text-sm text-muted-foreground">{e.qty}L × {fmtMoney(e.rate || 0)}</span> : null}
+                    {e.type === "purchase" ? (e.item_name || t("purchase")) : t("payment")}
+                    {e.type === "purchase" && e.qty ? <span className="ml-2 text-sm text-muted-foreground">{e.qty}{e.unit ? e.unit : "L"} × {fmtMoney(e.rate || 0)}</span> : null}
                   </p>
                   <p className="text-xs text-muted-foreground">{fmtDate(e.entry_date)}{e.note ? " • " + e.note : ""}</p>
                 </div>
