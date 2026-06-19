@@ -186,6 +186,20 @@ function stubApi(): NonNullable<Window["api"]> {
       async logout() { const s = load(); s.session = null; save(s); return { ok: true }; },
       async change(cur, nu, np) { const s = load(); if (!s.session) return { ok: false, error: "Not logged in" }; const u = s.users.find(x => x.id === s.session!.id)!; if (u.password !== cur) return { ok: false, error: "Current password is wrong" }; if (nu) u.username = nu; if (np) u.password = np; s.session = { id: u.id, username: u.username }; save(s); return { ok: true, user: s.session }; },
     },
+    setup: {
+      async status() { const s = load(); return { complete: s.settings.first_install_complete === "1" }; },
+      async complete(p) {
+        const s = load();
+        if (!p.username || (p.password || "").length < 4) return { ok: false, error: "Username required and password must be at least 4 characters" };
+        s.users = [{ id: 1, username: p.username, password: p.password }];
+        if (p.shop_name != null) s.settings.shop_name = p.shop_name;
+        if (p.logo_data_url != null) s.settings.logo_data_url = p.logo_data_url;
+        if (p.printer_name != null) s.settings.printer_name = p.printer_name;
+        s.settings.first_install_complete = "1";
+        save(s);
+        return { ok: true };
+      },
+    },
     settings: {
       async getAll() { return load().settings; },
       async set(k, v) { const s = load(); s.settings[k] = String(v ?? ""); save(s); return { ok: true }; },
