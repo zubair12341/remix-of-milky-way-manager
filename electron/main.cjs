@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 
 let Database, bcrypt;
 try { Database = require("better-sqlite3"); } catch (e) { console.error("better-sqlite3 missing"); throw e; }
@@ -10,9 +11,34 @@ try { bcrypt = require("bcryptjs"); } catch (e) { console.error("bcryptjs missin
 const userDataDir = app.getPath("userData");
 if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
 const dbPath = path.join(userDataDir, "milkshop.db");
+
+// ---- Pre-launch backup (Phase 1) ----
+// Snapshot the SQLite file before any ALTER/CREATE runs. Keeps most recent 10.
+try {
+  if (fs.existsSync(dbPath)) {
+    const backupDir = path.join(userDataDir, "backups");
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const target = path.join(backupDir, `milkshop-prelaunch-${ts}.db`);
+    fs.copyFileSync(dbPath, target);
+    for (const ext of ["-wal", "-shm"]) {
+      const src = dbPath + ext;
+      if (fs.existsSync(src)) fs.copyFileSync(src, target + ext);
+    }
+    const snaps = fs.readdirSync(backupDir).filter(f => f.startsWith("milkshop-prelaunch-") && f.endsWith(".db")).sort();
+    while (snaps.length > 10) {
+      const old = snaps.shift();
+      try { fs.unlinkSync(path.join(backupDir, old)); } catch {}
+      for (const ext of ["-wal", "-shm"]) { try { fs.unlinkSync(path.join(backupDir, old + ext)); } catch {} }
+    }
+  }
+} catch (e) { console.error("Pre-launch backup failed (non-fatal):", e); }
+
 const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
+
+const uuid = () => crypto.randomUUID();
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, is_admin INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')));
@@ -28,6 +54,40 @@ CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name
 CREATE TABLE IF NOT EXISTS purchase_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, kind TEXT NOT NULL DEFAULT 'item' CHECK(kind IN ('item','expense')), is_custom INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS purchases_v2 (id INTEGER PRIMARY KEY AUTOINCREMENT, entry_date TEXT NOT NULL, category_id INTEGER REFERENCES purchase_categories(id) ON DELETE SET NULL, supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL, item_name TEXT, qty REAL, unit TEXT, rate REAL, amount REAL NOT NULL DEFAULT 0, paid_now REAL NOT NULL DEFAULT 0, type TEXT NOT NULL DEFAULT 'purchase' CHECK(type IN ('purchase','payment')), note TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS purchase_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE, type TEXT NOT NULL CHECK(type IN ('purchase','payment')), amount REAL NOT NULL, qty REAL, rate REAL, note TEXT, entry_date TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+
+-- ===== Phase 1 sync-ready tables (UUID PKs + audit fields) =====
+CREATE TABLE IF NOT EXISTS suppliers_v2 (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, mobile TEXT, address TEXT,
+  opening_balance REAL NOT NULL DEFAULT 0, notes TEXT, deleted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by TEXT, updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS purchases_v3 (
+  id TEXT PRIMARY KEY,
+  supplier_id TEXT REFERENCES suppliers_v2(id) ON DELETE SET NULL,
+  entry_date TEXT NOT NULL, invoice_no TEXT, item_name TEXT,
+  qty REAL, unit TEXT, rate REAL, amount REAL NOT NULL DEFAULT 0,
+  payment_mode TEXT NOT NULL DEFAULT 'credit' CHECK(payment_mode IN ('cash','credit')),
+  notes TEXT, deleted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by TEXT, updated_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_purchases_v3_supplier ON purchases_v3(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_purchases_v3_date ON purchases_v3(entry_date);
+CREATE TABLE IF NOT EXISTS supplier_payments (
+  id TEXT PRIMARY KEY,
+  supplier_id TEXT NOT NULL REFERENCES suppliers_v2(id) ON DELETE CASCADE,
+  entry_date TEXT NOT NULL, amount REAL NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'cash' CHECK(mode IN ('cash','bank','upi','cheque','other')),
+  reference_no TEXT, notes TEXT, deleted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by TEXT, updated_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON supplier_payments(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_date ON supplier_payments(entry_date);
 `);
 
 // Idempotent ALTERs
@@ -42,13 +102,28 @@ if (catCount === 0) {
   ].forEach(([n,k]) => ins.run(n,k));
 }
 
-// Seed admin
+// Seed admin (used until first-install wizard completes)
 if (db.prepare("SELECT COUNT(*) c FROM users").get().c === 0) {
   db.prepare("INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)").run("admin", bcrypt.hashSync("admin123", 10));
 }
 const defaults = { shop_name: "Milk Shop", logo_data_url: "", language: "en", printer_name: "", receipt_width: "80", invoice_counter: "1000" };
 const setStmt = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
 for (const [k, v] of Object.entries(defaults)) setStmt.run(k, v);
+
+// First-install flag — auto-mark complete on installs that already have data
+{
+  const flag = db.prepare("SELECT value FROM settings WHERE key='first_install_complete'").get();
+  if (!flag) {
+    const n = db.prepare(`SELECT
+      (SELECT COUNT(*) FROM cash_transactions) +
+      (SELECT COUNT(*) FROM udhar_customers) +
+      (SELECT COUNT(*) FROM monthly_clients) +
+      (SELECT COUNT(*) FROM suppliers) +
+      (SELECT COUNT(*) FROM purchases_v2) AS n`).get().n;
+    if (n > 0) db.prepare("INSERT INTO settings (key,value) VALUES ('first_install_complete','1')").run();
+  }
+}
+
 
 let session = null;
 const getSetting = (k) => { const r = db.prepare("SELECT value FROM settings WHERE key=?").get(k); return r ? r.value : null; };
