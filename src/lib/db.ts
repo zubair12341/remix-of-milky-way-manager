@@ -318,6 +318,49 @@ function stubApi(): NonNullable<Window["api"]> {
         });
       },
     },
+    supplierLedger: (() => {
+      const KEY = "milkshop_sl_v1";
+      type SL = { suppliers: SupplierV2[]; purchases: any[]; payments: any[] };
+      const ld = (): SL => { try { return JSON.parse(localStorage.getItem(KEY) || "") || { suppliers: [], purchases: [], payments: [] }; } catch { return { suppliers: [], purchases: [], payments: [] }; } };
+      const sv = (s: SL) => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+      const newId = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+      const outstanding = (s: SL, id: string) => {
+        const sup = s.suppliers.find(x => x.id === id); if (!sup) return 0;
+        const p = s.purchases.filter(x => x.supplier_id === id && x.payment_mode === "credit" && !x.deleted_at).reduce((a, x) => a + x.amount, 0);
+        const pay = s.payments.filter(x => x.supplier_id === id && !x.deleted_at).reduce((a, x) => a + x.amount, 0);
+        return (sup.opening_balance || 0) + p - pay;
+      };
+      return {
+        async suppliers(q) { const s = ld(); const ql = (q || "").toLowerCase(); return s.suppliers.filter(r => !r.deleted_at && (!ql || (r.name + " " + (r.mobile||"") + " " + (r.address||"")).toLowerCase().includes(ql))).map(r => ({ ...r, outstanding: outstanding(s, r.id) })); },
+        async supplier(id) { const s = ld(); const r = s.suppliers.find(x => x.id === id && !x.deleted_at); return r ? { ...r, outstanding: outstanding(s, id) } : null; },
+        async addSupplier(i) { const s = ld(); const now = new Date().toISOString(); const r: SupplierV2 = { id: newId(), name: i.name, mobile: i.mobile ?? null, address: i.address ?? null, opening_balance: Number(i.opening_balance) || 0, notes: i.notes ?? null, deleted_at: null, created_at: now, updated_at: now, created_by: null, updated_by: null }; s.suppliers.push(r); sv(s); return r; },
+        async updateSupplier(i) { const s = ld(); const r = s.suppliers.find(x => x.id === i.id); if (r) { Object.assign(r, { name: i.name, mobile: i.mobile ?? null, address: i.address ?? null, opening_balance: Number(i.opening_balance) || 0, notes: i.notes ?? null, updated_at: new Date().toISOString() }); sv(s); } return { ok: true }; },
+        async deleteSupplier(id) { const s = ld(); const r = s.suppliers.find(x => x.id === id); if (r) { r.deleted_at = new Date().toISOString(); sv(s); } return { ok: true }; },
+        async ledger({ supplierId, from, to, q }) {
+          const s = ld(); const fromD = from || "0000-01-01", toD = to || "9999-12-31"; const ql = (q || "").toLowerCase();
+          const sup = s.suppliers.find(x => x.id === supplierId);
+          const priorP = s.purchases.filter(x => x.supplier_id === supplierId && x.payment_mode === "credit" && !x.deleted_at && x.entry_date < fromD).reduce((a, x) => a + x.amount, 0);
+          const priorPay = s.payments.filter(x => x.supplier_id === supplierId && !x.deleted_at && x.entry_date < fromD).reduce((a, x) => a + x.amount, 0);
+          let bal = (sup?.opening_balance || 0) + priorP - priorPay;
+          const opening = bal;
+          const purchases = s.purchases.filter(x => x.supplier_id === supplierId && !x.deleted_at && x.entry_date >= fromD && x.entry_date <= toD).map(x => ({ ...x, kind: "purchase" as const }));
+          const payments = s.payments.filter(x => x.supplier_id === supplierId && !x.deleted_at && x.entry_date >= fromD && x.entry_date <= toD).map(x => ({ ...x, kind: "payment" as const }));
+          let entries = [...purchases, ...payments];
+          if (ql) entries = entries.filter(e => `${e.item_name||""} ${e.invoice_no||""} ${e.reference_no||""} ${e.notes||""} ${e.mode||""}`.toLowerCase().includes(ql));
+          entries.sort((a, b) => a.entry_date.localeCompare(b.entry_date) || String(a.id).localeCompare(String(b.id)));
+          const rows: SupplierLedgerRow[] = entries.map(e => {
+            if (e.kind === "purchase") { const debit = e.payment_mode === "credit" ? e.amount : 0; bal += debit; return { ...e, debit, credit: 0, balance: bal }; }
+            else { bal -= e.amount; return { ...e, debit: 0, credit: e.amount, balance: bal }; }
+          });
+          return { opening, rows, closing: bal };
+        },
+        async addPurchase(i) { const s = ld(); const id = newId(); const now = new Date().toISOString(); const amount = i.amount != null ? Number(i.amount) : (Number(i.qty)||0) * (Number(i.rate)||0); s.purchases.push({ id, supplier_id: i.supplier_id, entry_date: i.entry_date || today(), invoice_no: i.invoice_no ?? null, item_name: i.item_name ?? null, qty: i.qty ?? null, unit: i.unit ?? null, rate: i.rate ?? null, amount, payment_mode: i.payment_mode || "credit", notes: i.notes ?? null, deleted_at: null, created_at: now, updated_at: now }); sv(s); return { ok: true, id }; },
+        async addPayment(i) { const s = ld(); const id = newId(); const now = new Date().toISOString(); s.payments.push({ id, supplier_id: i.supplier_id, entry_date: i.entry_date || today(), amount: Number(i.amount), mode: i.mode || "cash", reference_no: i.reference_no ?? null, notes: i.notes ?? null, deleted_at: null, created_at: now, updated_at: now }); sv(s); return { ok: true, id }; },
+        async deletePurchase(id) { const s = ld(); const r = s.purchases.find(x => x.id === id); if (r) { r.deleted_at = new Date().toISOString(); sv(s); } return { ok: true }; },
+        async deletePayment(id) { const s = ld(); const r = s.payments.find(x => x.id === id); if (r) { r.deleted_at = new Date().toISOString(); sv(s); } return { ok: true }; },
+        async totals(args = {}) { const s = ld(); const fromD = args.from || "0000-01-01", toD = args.to || "9999-12-31"; const purchases = s.purchases.filter(x => !x.deleted_at && x.entry_date >= fromD && x.entry_date <= toD).reduce((a, x) => a + x.amount, 0); const payments = s.payments.filter(x => !x.deleted_at && x.entry_date >= fromD && x.entry_date <= toD).reduce((a, x) => a + x.amount, 0); const out = s.suppliers.filter(x => !x.deleted_at).reduce((a, sup) => a + outstanding(s, sup.id), 0); return { purchases, payments, outstanding: out }; },
+      };
+    })(),
     print: {
       async receipt(p) {
         const w = window.open("", "_blank", "width=320,height=480");
