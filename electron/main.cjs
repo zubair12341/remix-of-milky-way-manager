@@ -335,6 +335,127 @@ ipcMain.handle("print:html", async (_e, { html, thermal }) => {
   return silentPrint(html);
 });
 
+// ---- First-install wizard ----
+ipcMain.handle("setup:status", () => {
+  const r = db.prepare("SELECT value FROM settings WHERE key='first_install_complete'").get();
+  return { complete: r?.value === "1" };
+});
+ipcMain.handle("setup:complete", (_e, p = {}) => {
+  const username = (p.username || "admin").trim();
+  const password = p.password || "";
+  if (!username || password.length < 4) return { ok: false, error: "Username required and password must be at least 4 characters" };
+  const tx = db.transaction(() => {
+    const existing = db.prepare("SELECT id FROM users LIMIT 1").get();
+    const hash = bcrypt.hashSync(password, 10);
+    if (existing) db.prepare("UPDATE users SET username=?, password_hash=?, is_admin=1 WHERE id=?").run(username, hash, existing.id);
+    else db.prepare("INSERT INTO users (username,password_hash,is_admin) VALUES (?,?,1)").run(username, hash);
+    if (p.shop_name != null) setSetting("shop_name", p.shop_name);
+    if (p.logo_data_url != null) setSetting("logo_data_url", p.logo_data_url);
+    if (p.printer_name != null) setSetting("printer_name", p.printer_name);
+    setSetting("first_install_complete", "1");
+  });
+  tx();
+  return { ok: true };
+});
+
+// ---- Supplier Ledger (Phase 1 — UUID + audit) ----
+function supplierOutstanding(id) {
+  const open = db.prepare("SELECT COALESCE(opening_balance,0) v FROM suppliers_v2 WHERE id=? AND deleted_at IS NULL").get(id)?.v || 0;
+  const purch = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM purchases_v3 WHERE supplier_id=? AND payment_mode='credit' AND deleted_at IS NULL").get(id).v;
+  const paid = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM supplier_payments WHERE supplier_id=? AND deleted_at IS NULL").get(id).v;
+  return open + purch - paid;
+}
+ipcMain.handle("sl:suppliers", (_e, { q } = {}) => {
+  const rows = db.prepare("SELECT * FROM suppliers_v2 WHERE deleted_at IS NULL ORDER BY name").all();
+  const ql = (q || "").toLowerCase();
+  return rows
+    .filter(r => !ql || (r.name + " " + (r.mobile||"") + " " + (r.address||"")).toLowerCase().includes(ql))
+    .map(r => ({ ...r, outstanding: supplierOutstanding(r.id) }));
+});
+ipcMain.handle("sl:supplier", (_e, { id }) => {
+  const r = db.prepare("SELECT * FROM suppliers_v2 WHERE id=? AND deleted_at IS NULL").get(id);
+  return r ? { ...r, outstanding: supplierOutstanding(id) } : null;
+});
+ipcMain.handle("sl:addSupplier", (_e, p) => {
+  const id = uuid();
+  const by = session?.username || null;
+  db.prepare("INSERT INTO suppliers_v2 (id,name,mobile,address,opening_balance,notes,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?)")
+    .run(id, p.name, p.mobile||null, p.address||null, Number(p.opening_balance)||0, p.notes||null, by, by);
+  return db.prepare("SELECT * FROM suppliers_v2 WHERE id=?").get(id);
+});
+ipcMain.handle("sl:updateSupplier", (_e, p) => {
+  const by = session?.username || null;
+  db.prepare("UPDATE suppliers_v2 SET name=?,mobile=?,address=?,opening_balance=?,notes=?,updated_at=datetime('now'),updated_by=? WHERE id=?")
+    .run(p.name, p.mobile||null, p.address||null, Number(p.opening_balance)||0, p.notes||null, by, p.id);
+  return { ok: true };
+});
+ipcMain.handle("sl:deleteSupplier", (_e, { id }) => {
+  const by = session?.username || null;
+  db.prepare("UPDATE suppliers_v2 SET deleted_at=datetime('now'), updated_at=datetime('now'), updated_by=? WHERE id=?").run(by, id);
+  return { ok: true };
+});
+ipcMain.handle("sl:ledger", (_e, { supplierId, from, to, q } = {}) => {
+  const fromD = from || "0000-01-01", toD = to || "9999-12-31";
+  const ql = (q || "").toLowerCase();
+  const purchases = db.prepare("SELECT id,entry_date,invoice_no,item_name,qty,unit,rate,amount,payment_mode,notes FROM purchases_v3 WHERE supplier_id=? AND entry_date BETWEEN ? AND ? AND deleted_at IS NULL").all(supplierId, fromD, toD)
+    .map(r => ({ ...r, kind: "purchase" }));
+  const payments = db.prepare("SELECT id,entry_date,amount,mode,reference_no,notes FROM supplier_payments WHERE supplier_id=? AND entry_date BETWEEN ? AND ? AND deleted_at IS NULL").all(supplierId, fromD, toD)
+    .map(r => ({ ...r, kind: "payment" }));
+  let entries = [...purchases, ...payments];
+  if (ql) entries = entries.filter(e => `${e.item_name||""} ${e.invoice_no||""} ${e.reference_no||""} ${e.notes||""} ${e.mode||""}`.toLowerCase().includes(ql));
+  entries.sort((a, b) => a.entry_date.localeCompare(b.entry_date) || String(a.id).localeCompare(String(b.id)));
+  // Compute running balance, starting from opening_balance + activity before fromD
+  const sup = db.prepare("SELECT opening_balance FROM suppliers_v2 WHERE id=?").get(supplierId);
+  const priorP = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM purchases_v3 WHERE supplier_id=? AND payment_mode='credit' AND entry_date<? AND deleted_at IS NULL").get(supplierId, fromD).v;
+  const priorPay = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM supplier_payments WHERE supplier_id=? AND entry_date<? AND deleted_at IS NULL").get(supplierId, fromD).v;
+  let bal = (sup?.opening_balance || 0) + priorP - priorPay;
+  const opening = bal;
+  const rows = entries.map(e => {
+    if (e.kind === "purchase") {
+      const debit = e.payment_mode === "credit" ? e.amount : 0;
+      bal += debit;
+      return { ...e, debit, credit: 0, balance: bal };
+    } else {
+      bal -= e.amount;
+      return { ...e, debit: 0, credit: e.amount, balance: bal };
+    }
+  });
+  return { opening, rows, closing: bal };
+});
+ipcMain.handle("sl:addPurchase", (_e, p) => {
+  const id = uuid();
+  const by = session?.username || null;
+  const amount = p.amount != null ? Number(p.amount) : (Number(p.qty)||0) * (Number(p.rate)||0);
+  db.prepare("INSERT INTO purchases_v3 (id,supplier_id,entry_date,invoice_no,item_name,qty,unit,rate,amount,payment_mode,notes,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    .run(id, p.supplier_id||null, p.entry_date || new Date().toISOString().slice(0,10), p.invoice_no||null, p.item_name||null, p.qty!=null?Number(p.qty):null, p.unit||null, p.rate!=null?Number(p.rate):null, amount, p.payment_mode || "credit", p.notes||null, by, by);
+  return { ok: true, id };
+});
+ipcMain.handle("sl:addPayment", (_e, p) => {
+  const id = uuid();
+  const by = session?.username || null;
+  db.prepare("INSERT INTO supplier_payments (id,supplier_id,entry_date,amount,mode,reference_no,notes,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?)")
+    .run(id, p.supplier_id, p.entry_date || new Date().toISOString().slice(0,10), Number(p.amount), p.mode || "cash", p.reference_no||null, p.notes||null, by, by);
+  return { ok: true, id };
+});
+ipcMain.handle("sl:deletePurchase", (_e, { id }) => {
+  const by = session?.username || null;
+  db.prepare("UPDATE purchases_v3 SET deleted_at=datetime('now'),updated_at=datetime('now'),updated_by=? WHERE id=?").run(by, id);
+  return { ok: true };
+});
+ipcMain.handle("sl:deletePayment", (_e, { id }) => {
+  const by = session?.username || null;
+  db.prepare("UPDATE supplier_payments SET deleted_at=datetime('now'),updated_at=datetime('now'),updated_by=? WHERE id=?").run(by, id);
+  return { ok: true };
+});
+ipcMain.handle("sl:totals", (_e, { from, to } = {}) => {
+  const fromD = from || "0000-01-01", toD = to || "9999-12-31";
+  const purchases = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM purchases_v3 WHERE entry_date BETWEEN ? AND ? AND deleted_at IS NULL").get(fromD,toD).v;
+  const payments = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM supplier_payments WHERE entry_date BETWEEN ? AND ? AND deleted_at IS NULL").get(fromD,toD).v;
+  const sups = db.prepare("SELECT id FROM suppliers_v2 WHERE deleted_at IS NULL").all();
+  const outstanding = sups.reduce((a, s) => a + supplierOutstanding(s.id), 0);
+  return { purchases, payments, outstanding };
+});
+
 // ---- Window ----
 function createWindow() {
   const win = new BrowserWindow({
