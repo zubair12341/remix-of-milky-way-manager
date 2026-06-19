@@ -26,6 +26,10 @@ export type PurchaseEntry = {
 };
 export type PurchaseTotals = { today: number; month: number; all: number; range_items: number; range_expenses: number };
 
+export type SupplierV2 = { id: string; name: string; mobile: string | null; address: string | null; opening_balance: number; notes: string | null; deleted_at: string | null; created_at: string; updated_at: string; created_by: string | null; updated_by: string | null; outstanding?: number };
+export type SupplierLedgerRow = { id: string; entry_date: string; kind: "purchase" | "payment"; debit: number; credit: number; balance: number; invoice_no?: string | null; item_name?: string | null; qty?: number | null; unit?: string | null; rate?: number | null; amount?: number; payment_mode?: "cash" | "credit"; mode?: string; reference_no?: string | null; notes?: string | null };
+export type SupplierLedger = { opening: number; rows: SupplierLedgerRow[]; closing: number };
+
 declare global {
   interface Window {
     api?: {
@@ -35,6 +39,10 @@ declare global {
         session: () => Promise<User | null>;
         logout: () => Promise<{ ok: boolean }>;
         change: (cur: string, nu: string, np: string) => Promise<{ ok: boolean; user?: User; error?: string }>;
+      };
+      setup: {
+        status: () => Promise<{ complete: boolean }>;
+        complete: (p: { username: string; password: string; shop_name?: string; logo_data_url?: string; printer_name?: string }) => Promise<{ ok: boolean; error?: string }>;
       };
       settings: {
         getAll: () => Promise<SettingsMap>;
@@ -90,6 +98,19 @@ declare global {
         totals: (args?: { from?: string; to?: string }) => Promise<PurchaseTotals>;
         expensesByCategory: (from: string, to: string) => Promise<{ name: string; total: number }[]>;
       };
+      supplierLedger: {
+        suppliers: (q?: string) => Promise<SupplierV2[]>;
+        supplier: (id: string) => Promise<SupplierV2 | null>;
+        addSupplier: (i: { name: string; mobile?: string; address?: string; opening_balance?: number; notes?: string }) => Promise<SupplierV2>;
+        updateSupplier: (i: { id: string; name: string; mobile?: string; address?: string; opening_balance?: number; notes?: string }) => Promise<{ ok: boolean }>;
+        deleteSupplier: (id: string) => Promise<{ ok: boolean }>;
+        ledger: (a: { supplierId: string; from?: string; to?: string; q?: string }) => Promise<SupplierLedger>;
+        addPurchase: (i: { supplier_id: string; entry_date?: string; invoice_no?: string; item_name?: string; qty?: number; unit?: string; rate?: number; amount?: number; payment_mode?: "cash" | "credit"; notes?: string }) => Promise<{ ok: boolean; id: string }>;
+        addPayment: (i: { supplier_id: string; entry_date?: string; amount: number; mode?: "cash" | "bank" | "upi" | "cheque" | "other"; reference_no?: string; notes?: string }) => Promise<{ ok: boolean; id: string }>;
+        deletePurchase: (id: string) => Promise<{ ok: boolean }>;
+        deletePayment: (id: string) => Promise<{ ok: boolean }>;
+        totals: (args?: { from?: string; to?: string }) => Promise<{ purchases: number; payments: number; outstanding: number }>;
+      };
       print: {
         receipt: (p: { invoice_no: number | string; amount: number; date: string; shop_name: string; logo_data_url?: string }) => Promise<{ ok: boolean; error?: string | null }>;
         test: () => Promise<{ ok: boolean; error?: string | null }>;
@@ -103,6 +124,7 @@ declare global {
     };
   }
 }
+
 
 // ---- Web stub (Lovable preview) ----
 const LS_KEY = "milkshop_stub_v2";
