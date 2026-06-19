@@ -14,6 +14,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedUdharRouteImport } from './routes/_authenticated/udhar'
+import { Route as AuthenticatedSuppliersRouteImport } from './routes/_authenticated/suppliers'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPurchasesRouteImport } from './routes/_authenticated/purchases'
@@ -57,6 +58,11 @@ const AuthenticatedUdharRoute = AuthenticatedUdharRouteImport.update({
   path: '/udhar',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSuppliersRoute = AuthenticatedSuppliersRouteImport.update({
+  id: '/suppliers',
+  path: '/suppliers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -95,9 +101,9 @@ const AuthenticatedUdharIndexRoute = AuthenticatedUdharIndexRouteImport.update({
 } as any)
 const AuthenticatedSuppliersIndexRoute =
   AuthenticatedSuppliersIndexRouteImport.update({
-    id: '/suppliers/',
-    path: '/suppliers/',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSuppliersRoute,
   } as any)
 const AuthenticatedReportsIndexRoute =
   AuthenticatedReportsIndexRouteImport.update({
@@ -125,9 +131,9 @@ const AuthenticatedUdharCustomerIdRoute =
   } as any)
 const AuthenticatedSuppliersSupplierIdRoute =
   AuthenticatedSuppliersSupplierIdRouteImport.update({
-    id: '/suppliers/$supplierId',
-    path: '/suppliers/$supplierId',
-    getParentRoute: () => AuthenticatedRouteRoute,
+    id: '/$supplierId',
+    path: '/$supplierId',
+    getParentRoute: () => AuthenticatedSuppliersRoute,
   } as any)
 const AuthenticatedReportsSummaryRoute =
   AuthenticatedReportsSummaryRouteImport.update({
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/purchases': typeof AuthenticatedPurchasesRouteWithChildren
   '/reports': typeof AuthenticatedReportsRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRoute
+  '/suppliers': typeof AuthenticatedSuppliersRouteWithChildren
   '/udhar': typeof AuthenticatedUdharRouteWithChildren
   '/monthly/$clientId': typeof AuthenticatedMonthlyClientIdRoute
   '/monthly/deliveries': typeof AuthenticatedMonthlyDeliveriesRoute
@@ -216,6 +223,7 @@ export interface FileRoutesById {
   '/_authenticated/purchases': typeof AuthenticatedPurchasesRouteWithChildren
   '/_authenticated/reports': typeof AuthenticatedReportsRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/suppliers': typeof AuthenticatedSuppliersRouteWithChildren
   '/_authenticated/udhar': typeof AuthenticatedUdharRouteWithChildren
   '/_authenticated/monthly/$clientId': typeof AuthenticatedMonthlyClientIdRoute
   '/_authenticated/monthly/deliveries': typeof AuthenticatedMonthlyDeliveriesRoute
@@ -242,6 +250,7 @@ export interface FileRouteTypes {
     | '/purchases'
     | '/reports'
     | '/settings'
+    | '/suppliers'
     | '/udhar'
     | '/monthly/$clientId'
     | '/monthly/deliveries'
@@ -287,6 +296,7 @@ export interface FileRouteTypes {
     | '/_authenticated/purchases'
     | '/_authenticated/reports'
     | '/_authenticated/settings'
+    | '/_authenticated/suppliers'
     | '/_authenticated/udhar'
     | '/_authenticated/monthly/$clientId'
     | '/_authenticated/monthly/deliveries'
@@ -346,6 +356,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUdharRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/suppliers': {
+      id: '/_authenticated/suppliers'
+      path: '/suppliers'
+      fullPath: '/suppliers'
+      preLoaderRoute: typeof AuthenticatedSuppliersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -397,10 +414,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/suppliers/': {
       id: '/_authenticated/suppliers/'
-      path: '/suppliers'
+      path: '/'
       fullPath: '/suppliers/'
       preLoaderRoute: typeof AuthenticatedSuppliersIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof AuthenticatedSuppliersRoute
     }
     '/_authenticated/reports/': {
       id: '/_authenticated/reports/'
@@ -432,10 +449,10 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/suppliers/$supplierId': {
       id: '/_authenticated/suppliers/$supplierId'
-      path: '/suppliers/$supplierId'
+      path: '/$supplierId'
       fullPath: '/suppliers/$supplierId'
       preLoaderRoute: typeof AuthenticatedSuppliersSupplierIdRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      parentRoute: typeof AuthenticatedSuppliersRoute
     }
     '/_authenticated/reports/summary': {
       id: '/_authenticated/reports/summary'
@@ -522,6 +539,23 @@ const AuthenticatedReportsRouteChildren: AuthenticatedReportsRouteChildren = {
 const AuthenticatedReportsRouteWithChildren =
   AuthenticatedReportsRoute._addFileChildren(AuthenticatedReportsRouteChildren)
 
+interface AuthenticatedSuppliersRouteChildren {
+  AuthenticatedSuppliersSupplierIdRoute: typeof AuthenticatedSuppliersSupplierIdRoute
+  AuthenticatedSuppliersIndexRoute: typeof AuthenticatedSuppliersIndexRoute
+}
+
+const AuthenticatedSuppliersRouteChildren: AuthenticatedSuppliersRouteChildren =
+  {
+    AuthenticatedSuppliersSupplierIdRoute:
+      AuthenticatedSuppliersSupplierIdRoute,
+    AuthenticatedSuppliersIndexRoute: AuthenticatedSuppliersIndexRoute,
+  }
+
+const AuthenticatedSuppliersRouteWithChildren =
+  AuthenticatedSuppliersRoute._addFileChildren(
+    AuthenticatedSuppliersRouteChildren,
+  )
+
 interface AuthenticatedUdharRouteChildren {
   AuthenticatedUdharCustomerIdRoute: typeof AuthenticatedUdharCustomerIdRoute
   AuthenticatedUdharIndexRoute: typeof AuthenticatedUdharIndexRoute
@@ -542,9 +576,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRouteWithChildren
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedSuppliersRoute: typeof AuthenticatedSuppliersRouteWithChildren
   AuthenticatedUdharRoute: typeof AuthenticatedUdharRouteWithChildren
-  AuthenticatedSuppliersSupplierIdRoute: typeof AuthenticatedSuppliersSupplierIdRoute
-  AuthenticatedSuppliersIndexRoute: typeof AuthenticatedSuppliersIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -554,9 +587,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPurchasesRoute: AuthenticatedPurchasesRouteWithChildren,
   AuthenticatedReportsRoute: AuthenticatedReportsRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedSuppliersRoute: AuthenticatedSuppliersRouteWithChildren,
   AuthenticatedUdharRoute: AuthenticatedUdharRouteWithChildren,
-  AuthenticatedSuppliersSupplierIdRoute: AuthenticatedSuppliersSupplierIdRoute,
-  AuthenticatedSuppliersIndexRoute: AuthenticatedSuppliersIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
