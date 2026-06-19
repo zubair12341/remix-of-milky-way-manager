@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 
 let Database, bcrypt;
 try { Database = require("better-sqlite3"); } catch (e) { console.error("better-sqlite3 missing"); throw e; }
@@ -10,9 +11,34 @@ try { bcrypt = require("bcryptjs"); } catch (e) { console.error("bcryptjs missin
 const userDataDir = app.getPath("userData");
 if (!fs.existsSync(userDataDir)) fs.mkdirSync(userDataDir, { recursive: true });
 const dbPath = path.join(userDataDir, "milkshop.db");
+
+// ---- Pre-launch backup (Phase 1) ----
+// Snapshot the SQLite file before any ALTER/CREATE runs. Keeps most recent 10.
+try {
+  if (fs.existsSync(dbPath)) {
+    const backupDir = path.join(userDataDir, "backups");
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const target = path.join(backupDir, `milkshop-prelaunch-${ts}.db`);
+    fs.copyFileSync(dbPath, target);
+    for (const ext of ["-wal", "-shm"]) {
+      const src = dbPath + ext;
+      if (fs.existsSync(src)) fs.copyFileSync(src, target + ext);
+    }
+    const snaps = fs.readdirSync(backupDir).filter(f => f.startsWith("milkshop-prelaunch-") && f.endsWith(".db")).sort();
+    while (snaps.length > 10) {
+      const old = snaps.shift();
+      try { fs.unlinkSync(path.join(backupDir, old)); } catch {}
+      for (const ext of ["-wal", "-shm"]) { try { fs.unlinkSync(path.join(backupDir, old + ext)); } catch {} }
+    }
+  }
+} catch (e) { console.error("Pre-launch backup failed (non-fatal):", e); }
+
 const db = new Database(dbPath);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
+
+const uuid = () => crypto.randomUUID();
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL, is_admin INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT (datetime('now')));
@@ -28,6 +54,40 @@ CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name
 CREATE TABLE IF NOT EXISTS purchase_categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, kind TEXT NOT NULL DEFAULT 'item' CHECK(kind IN ('item','expense')), is_custom INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE IF NOT EXISTS purchases_v2 (id INTEGER PRIMARY KEY AUTOINCREMENT, entry_date TEXT NOT NULL, category_id INTEGER REFERENCES purchase_categories(id) ON DELETE SET NULL, supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL, item_name TEXT, qty REAL, unit TEXT, rate REAL, amount REAL NOT NULL DEFAULT 0, paid_now REAL NOT NULL DEFAULT 0, type TEXT NOT NULL DEFAULT 'purchase' CHECK(type IN ('purchase','payment')), note TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS purchase_entries (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE, type TEXT NOT NULL CHECK(type IN ('purchase','payment')), amount REAL NOT NULL, qty REAL, rate REAL, note TEXT, entry_date TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+
+-- ===== Phase 1 sync-ready tables (UUID PKs + audit fields) =====
+CREATE TABLE IF NOT EXISTS suppliers_v2 (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, mobile TEXT, address TEXT,
+  opening_balance REAL NOT NULL DEFAULT 0, notes TEXT, deleted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by TEXT, updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS purchases_v3 (
+  id TEXT PRIMARY KEY,
+  supplier_id TEXT REFERENCES suppliers_v2(id) ON DELETE SET NULL,
+  entry_date TEXT NOT NULL, invoice_no TEXT, item_name TEXT,
+  qty REAL, unit TEXT, rate REAL, amount REAL NOT NULL DEFAULT 0,
+  payment_mode TEXT NOT NULL DEFAULT 'credit' CHECK(payment_mode IN ('cash','credit')),
+  notes TEXT, deleted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by TEXT, updated_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_purchases_v3_supplier ON purchases_v3(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_purchases_v3_date ON purchases_v3(entry_date);
+CREATE TABLE IF NOT EXISTS supplier_payments (
+  id TEXT PRIMARY KEY,
+  supplier_id TEXT NOT NULL REFERENCES suppliers_v2(id) ON DELETE CASCADE,
+  entry_date TEXT NOT NULL, amount REAL NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'cash' CHECK(mode IN ('cash','bank','upi','cheque','other')),
+  reference_no TEXT, notes TEXT, deleted_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_by TEXT, updated_by TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_supplier ON supplier_payments(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_supplier_payments_date ON supplier_payments(entry_date);
 `);
 
 // Idempotent ALTERs
@@ -42,13 +102,28 @@ if (catCount === 0) {
   ].forEach(([n,k]) => ins.run(n,k));
 }
 
-// Seed admin
+// Seed admin (used until first-install wizard completes)
 if (db.prepare("SELECT COUNT(*) c FROM users").get().c === 0) {
   db.prepare("INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)").run("admin", bcrypt.hashSync("admin123", 10));
 }
 const defaults = { shop_name: "Milk Shop", logo_data_url: "", language: "en", printer_name: "", receipt_width: "80", invoice_counter: "1000" };
 const setStmt = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");
 for (const [k, v] of Object.entries(defaults)) setStmt.run(k, v);
+
+// First-install flag — auto-mark complete on installs that already have data
+{
+  const flag = db.prepare("SELECT value FROM settings WHERE key='first_install_complete'").get();
+  if (!flag) {
+    const n = db.prepare(`SELECT
+      (SELECT COUNT(*) FROM cash_transactions) +
+      (SELECT COUNT(*) FROM udhar_customers) +
+      (SELECT COUNT(*) FROM monthly_clients) +
+      (SELECT COUNT(*) FROM suppliers) +
+      (SELECT COUNT(*) FROM purchases_v2) AS n`).get().n;
+    if (n > 0) db.prepare("INSERT INTO settings (key,value) VALUES ('first_install_complete','1')").run();
+  }
+}
+
 
 let session = null;
 const getSetting = (k) => { const r = db.prepare("SELECT value FROM settings WHERE key=?").get(k); return r ? r.value : null; };
@@ -258,6 +333,127 @@ ipcMain.handle("print:html", async (_e, { html, thermal }) => {
     return silentPrint(html, { pageSize: { width: (parseInt(w,10)||80)*1000, height: 800000 } });
   }
   return silentPrint(html);
+});
+
+// ---- First-install wizard ----
+ipcMain.handle("setup:status", () => {
+  const r = db.prepare("SELECT value FROM settings WHERE key='first_install_complete'").get();
+  return { complete: r?.value === "1" };
+});
+ipcMain.handle("setup:complete", (_e, p = {}) => {
+  const username = (p.username || "admin").trim();
+  const password = p.password || "";
+  if (!username || password.length < 4) return { ok: false, error: "Username required and password must be at least 4 characters" };
+  const tx = db.transaction(() => {
+    const existing = db.prepare("SELECT id FROM users LIMIT 1").get();
+    const hash = bcrypt.hashSync(password, 10);
+    if (existing) db.prepare("UPDATE users SET username=?, password_hash=?, is_admin=1 WHERE id=?").run(username, hash, existing.id);
+    else db.prepare("INSERT INTO users (username,password_hash,is_admin) VALUES (?,?,1)").run(username, hash);
+    if (p.shop_name != null) setSetting("shop_name", p.shop_name);
+    if (p.logo_data_url != null) setSetting("logo_data_url", p.logo_data_url);
+    if (p.printer_name != null) setSetting("printer_name", p.printer_name);
+    setSetting("first_install_complete", "1");
+  });
+  tx();
+  return { ok: true };
+});
+
+// ---- Supplier Ledger (Phase 1 — UUID + audit) ----
+function supplierOutstanding(id) {
+  const open = db.prepare("SELECT COALESCE(opening_balance,0) v FROM suppliers_v2 WHERE id=? AND deleted_at IS NULL").get(id)?.v || 0;
+  const purch = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM purchases_v3 WHERE supplier_id=? AND payment_mode='credit' AND deleted_at IS NULL").get(id).v;
+  const paid = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM supplier_payments WHERE supplier_id=? AND deleted_at IS NULL").get(id).v;
+  return open + purch - paid;
+}
+ipcMain.handle("sl:suppliers", (_e, { q } = {}) => {
+  const rows = db.prepare("SELECT * FROM suppliers_v2 WHERE deleted_at IS NULL ORDER BY name").all();
+  const ql = (q || "").toLowerCase();
+  return rows
+    .filter(r => !ql || (r.name + " " + (r.mobile||"") + " " + (r.address||"")).toLowerCase().includes(ql))
+    .map(r => ({ ...r, outstanding: supplierOutstanding(r.id) }));
+});
+ipcMain.handle("sl:supplier", (_e, { id }) => {
+  const r = db.prepare("SELECT * FROM suppliers_v2 WHERE id=? AND deleted_at IS NULL").get(id);
+  return r ? { ...r, outstanding: supplierOutstanding(id) } : null;
+});
+ipcMain.handle("sl:addSupplier", (_e, p) => {
+  const id = uuid();
+  const by = session?.username || null;
+  db.prepare("INSERT INTO suppliers_v2 (id,name,mobile,address,opening_balance,notes,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?)")
+    .run(id, p.name, p.mobile||null, p.address||null, Number(p.opening_balance)||0, p.notes||null, by, by);
+  return db.prepare("SELECT * FROM suppliers_v2 WHERE id=?").get(id);
+});
+ipcMain.handle("sl:updateSupplier", (_e, p) => {
+  const by = session?.username || null;
+  db.prepare("UPDATE suppliers_v2 SET name=?,mobile=?,address=?,opening_balance=?,notes=?,updated_at=datetime('now'),updated_by=? WHERE id=?")
+    .run(p.name, p.mobile||null, p.address||null, Number(p.opening_balance)||0, p.notes||null, by, p.id);
+  return { ok: true };
+});
+ipcMain.handle("sl:deleteSupplier", (_e, { id }) => {
+  const by = session?.username || null;
+  db.prepare("UPDATE suppliers_v2 SET deleted_at=datetime('now'), updated_at=datetime('now'), updated_by=? WHERE id=?").run(by, id);
+  return { ok: true };
+});
+ipcMain.handle("sl:ledger", (_e, { supplierId, from, to, q } = {}) => {
+  const fromD = from || "0000-01-01", toD = to || "9999-12-31";
+  const ql = (q || "").toLowerCase();
+  const purchases = db.prepare("SELECT id,entry_date,invoice_no,item_name,qty,unit,rate,amount,payment_mode,notes FROM purchases_v3 WHERE supplier_id=? AND entry_date BETWEEN ? AND ? AND deleted_at IS NULL").all(supplierId, fromD, toD)
+    .map(r => ({ ...r, kind: "purchase" }));
+  const payments = db.prepare("SELECT id,entry_date,amount,mode,reference_no,notes FROM supplier_payments WHERE supplier_id=? AND entry_date BETWEEN ? AND ? AND deleted_at IS NULL").all(supplierId, fromD, toD)
+    .map(r => ({ ...r, kind: "payment" }));
+  let entries = [...purchases, ...payments];
+  if (ql) entries = entries.filter(e => `${e.item_name||""} ${e.invoice_no||""} ${e.reference_no||""} ${e.notes||""} ${e.mode||""}`.toLowerCase().includes(ql));
+  entries.sort((a, b) => a.entry_date.localeCompare(b.entry_date) || String(a.id).localeCompare(String(b.id)));
+  // Compute running balance, starting from opening_balance + activity before fromD
+  const sup = db.prepare("SELECT opening_balance FROM suppliers_v2 WHERE id=?").get(supplierId);
+  const priorP = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM purchases_v3 WHERE supplier_id=? AND payment_mode='credit' AND entry_date<? AND deleted_at IS NULL").get(supplierId, fromD).v;
+  const priorPay = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM supplier_payments WHERE supplier_id=? AND entry_date<? AND deleted_at IS NULL").get(supplierId, fromD).v;
+  let bal = (sup?.opening_balance || 0) + priorP - priorPay;
+  const opening = bal;
+  const rows = entries.map(e => {
+    if (e.kind === "purchase") {
+      const debit = e.payment_mode === "credit" ? e.amount : 0;
+      bal += debit;
+      return { ...e, debit, credit: 0, balance: bal };
+    } else {
+      bal -= e.amount;
+      return { ...e, debit: 0, credit: e.amount, balance: bal };
+    }
+  });
+  return { opening, rows, closing: bal };
+});
+ipcMain.handle("sl:addPurchase", (_e, p) => {
+  const id = uuid();
+  const by = session?.username || null;
+  const amount = p.amount != null ? Number(p.amount) : (Number(p.qty)||0) * (Number(p.rate)||0);
+  db.prepare("INSERT INTO purchases_v3 (id,supplier_id,entry_date,invoice_no,item_name,qty,unit,rate,amount,payment_mode,notes,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    .run(id, p.supplier_id||null, p.entry_date || new Date().toISOString().slice(0,10), p.invoice_no||null, p.item_name||null, p.qty!=null?Number(p.qty):null, p.unit||null, p.rate!=null?Number(p.rate):null, amount, p.payment_mode || "credit", p.notes||null, by, by);
+  return { ok: true, id };
+});
+ipcMain.handle("sl:addPayment", (_e, p) => {
+  const id = uuid();
+  const by = session?.username || null;
+  db.prepare("INSERT INTO supplier_payments (id,supplier_id,entry_date,amount,mode,reference_no,notes,created_by,updated_by) VALUES (?,?,?,?,?,?,?,?,?)")
+    .run(id, p.supplier_id, p.entry_date || new Date().toISOString().slice(0,10), Number(p.amount), p.mode || "cash", p.reference_no||null, p.notes||null, by, by);
+  return { ok: true, id };
+});
+ipcMain.handle("sl:deletePurchase", (_e, { id }) => {
+  const by = session?.username || null;
+  db.prepare("UPDATE purchases_v3 SET deleted_at=datetime('now'),updated_at=datetime('now'),updated_by=? WHERE id=?").run(by, id);
+  return { ok: true };
+});
+ipcMain.handle("sl:deletePayment", (_e, { id }) => {
+  const by = session?.username || null;
+  db.prepare("UPDATE supplier_payments SET deleted_at=datetime('now'),updated_at=datetime('now'),updated_by=? WHERE id=?").run(by, id);
+  return { ok: true };
+});
+ipcMain.handle("sl:totals", (_e, { from, to } = {}) => {
+  const fromD = from || "0000-01-01", toD = to || "9999-12-31";
+  const purchases = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM purchases_v3 WHERE entry_date BETWEEN ? AND ? AND deleted_at IS NULL").get(fromD,toD).v;
+  const payments = db.prepare("SELECT COALESCE(SUM(amount),0) v FROM supplier_payments WHERE entry_date BETWEEN ? AND ? AND deleted_at IS NULL").get(fromD,toD).v;
+  const sups = db.prepare("SELECT id FROM suppliers_v2 WHERE deleted_at IS NULL").all();
+  const outstanding = sups.reduce((a, s) => a + supplierOutstanding(s.id), 0);
+  return { purchases, payments, outstanding };
 });
 
 // ---- Window ----

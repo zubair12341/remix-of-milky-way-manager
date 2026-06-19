@@ -26,6 +26,10 @@ export type PurchaseEntry = {
 };
 export type PurchaseTotals = { today: number; month: number; all: number; range_items: number; range_expenses: number };
 
+export type SupplierV2 = { id: string; name: string; mobile: string | null; address: string | null; opening_balance: number; notes: string | null; deleted_at: string | null; created_at: string; updated_at: string; created_by: string | null; updated_by: string | null; outstanding?: number };
+export type SupplierLedgerRow = { id: string; entry_date: string; kind: "purchase" | "payment"; debit: number; credit: number; balance: number; invoice_no?: string | null; item_name?: string | null; qty?: number | null; unit?: string | null; rate?: number | null; amount?: number; payment_mode?: "cash" | "credit"; mode?: string; reference_no?: string | null; notes?: string | null };
+export type SupplierLedger = { opening: number; rows: SupplierLedgerRow[]; closing: number };
+
 declare global {
   interface Window {
     api?: {
@@ -35,6 +39,10 @@ declare global {
         session: () => Promise<User | null>;
         logout: () => Promise<{ ok: boolean }>;
         change: (cur: string, nu: string, np: string) => Promise<{ ok: boolean; user?: User; error?: string }>;
+      };
+      setup: {
+        status: () => Promise<{ complete: boolean }>;
+        complete: (p: { username: string; password: string; shop_name?: string; logo_data_url?: string; printer_name?: string }) => Promise<{ ok: boolean; error?: string }>;
       };
       settings: {
         getAll: () => Promise<SettingsMap>;
@@ -90,6 +98,19 @@ declare global {
         totals: (args?: { from?: string; to?: string }) => Promise<PurchaseTotals>;
         expensesByCategory: (from: string, to: string) => Promise<{ name: string; total: number }[]>;
       };
+      supplierLedger: {
+        suppliers: (q?: string) => Promise<SupplierV2[]>;
+        supplier: (id: string) => Promise<SupplierV2 | null>;
+        addSupplier: (i: { name: string; mobile?: string; address?: string; opening_balance?: number; notes?: string }) => Promise<SupplierV2>;
+        updateSupplier: (i: { id: string; name: string; mobile?: string; address?: string; opening_balance?: number; notes?: string }) => Promise<{ ok: boolean }>;
+        deleteSupplier: (id: string) => Promise<{ ok: boolean }>;
+        ledger: (a: { supplierId: string; from?: string; to?: string; q?: string }) => Promise<SupplierLedger>;
+        addPurchase: (i: { supplier_id: string; entry_date?: string; invoice_no?: string; item_name?: string; qty?: number; unit?: string; rate?: number; amount?: number; payment_mode?: "cash" | "credit"; notes?: string }) => Promise<{ ok: boolean; id: string }>;
+        addPayment: (i: { supplier_id: string; entry_date?: string; amount: number; mode?: "cash" | "bank" | "upi" | "cheque" | "other"; reference_no?: string; notes?: string }) => Promise<{ ok: boolean; id: string }>;
+        deletePurchase: (id: string) => Promise<{ ok: boolean }>;
+        deletePayment: (id: string) => Promise<{ ok: boolean }>;
+        totals: (args?: { from?: string; to?: string }) => Promise<{ purchases: number; payments: number; outstanding: number }>;
+      };
       print: {
         receipt: (p: { invoice_no: number | string; amount: number; date: string; shop_name: string; logo_data_url?: string }) => Promise<{ ok: boolean; error?: string | null }>;
         test: () => Promise<{ ok: boolean; error?: string | null }>;
@@ -103,6 +124,7 @@ declare global {
     };
   }
 }
+
 
 // ---- Web stub (Lovable preview) ----
 const LS_KEY = "milkshop_stub_v2";
@@ -163,6 +185,20 @@ function stubApi(): NonNullable<Window["api"]> {
       async session() { return load().session; },
       async logout() { const s = load(); s.session = null; save(s); return { ok: true }; },
       async change(cur, nu, np) { const s = load(); if (!s.session) return { ok: false, error: "Not logged in" }; const u = s.users.find(x => x.id === s.session!.id)!; if (u.password !== cur) return { ok: false, error: "Current password is wrong" }; if (nu) u.username = nu; if (np) u.password = np; s.session = { id: u.id, username: u.username }; save(s); return { ok: true, user: s.session }; },
+    },
+    setup: {
+      async status() { const s = load(); return { complete: s.settings.first_install_complete === "1" }; },
+      async complete(p) {
+        const s = load();
+        if (!p.username || (p.password || "").length < 4) return { ok: false, error: "Username required and password must be at least 4 characters" };
+        s.users = [{ id: 1, username: p.username, password: p.password }];
+        if (p.shop_name != null) s.settings.shop_name = p.shop_name;
+        if (p.logo_data_url != null) s.settings.logo_data_url = p.logo_data_url;
+        if (p.printer_name != null) s.settings.printer_name = p.printer_name;
+        s.settings.first_install_complete = "1";
+        save(s);
+        return { ok: true };
+      },
     },
     settings: {
       async getAll() { return load().settings; },
@@ -282,6 +318,49 @@ function stubApi(): NonNullable<Window["api"]> {
         });
       },
     },
+    supplierLedger: (() => {
+      const KEY = "milkshop_sl_v1";
+      type SL = { suppliers: SupplierV2[]; purchases: any[]; payments: any[] };
+      const ld = (): SL => { try { return JSON.parse(localStorage.getItem(KEY) || "") || { suppliers: [], purchases: [], payments: [] }; } catch { return { suppliers: [], purchases: [], payments: [] }; } };
+      const sv = (s: SL) => { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {} };
+      const newId = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+      const outstanding = (s: SL, id: string) => {
+        const sup = s.suppliers.find(x => x.id === id); if (!sup) return 0;
+        const p = s.purchases.filter(x => x.supplier_id === id && x.payment_mode === "credit" && !x.deleted_at).reduce((a, x) => a + x.amount, 0);
+        const pay = s.payments.filter(x => x.supplier_id === id && !x.deleted_at).reduce((a, x) => a + x.amount, 0);
+        return (sup.opening_balance || 0) + p - pay;
+      };
+      return {
+        async suppliers(q) { const s = ld(); const ql = (q || "").toLowerCase(); return s.suppliers.filter(r => !r.deleted_at && (!ql || (r.name + " " + (r.mobile||"") + " " + (r.address||"")).toLowerCase().includes(ql))).map(r => ({ ...r, outstanding: outstanding(s, r.id) })); },
+        async supplier(id) { const s = ld(); const r = s.suppliers.find(x => x.id === id && !x.deleted_at); return r ? { ...r, outstanding: outstanding(s, id) } : null; },
+        async addSupplier(i) { const s = ld(); const now = new Date().toISOString(); const r: SupplierV2 = { id: newId(), name: i.name, mobile: i.mobile ?? null, address: i.address ?? null, opening_balance: Number(i.opening_balance) || 0, notes: i.notes ?? null, deleted_at: null, created_at: now, updated_at: now, created_by: null, updated_by: null }; s.suppliers.push(r); sv(s); return r; },
+        async updateSupplier(i) { const s = ld(); const r = s.suppliers.find(x => x.id === i.id); if (r) { Object.assign(r, { name: i.name, mobile: i.mobile ?? null, address: i.address ?? null, opening_balance: Number(i.opening_balance) || 0, notes: i.notes ?? null, updated_at: new Date().toISOString() }); sv(s); } return { ok: true }; },
+        async deleteSupplier(id) { const s = ld(); const r = s.suppliers.find(x => x.id === id); if (r) { r.deleted_at = new Date().toISOString(); sv(s); } return { ok: true }; },
+        async ledger({ supplierId, from, to, q }) {
+          const s = ld(); const fromD = from || "0000-01-01", toD = to || "9999-12-31"; const ql = (q || "").toLowerCase();
+          const sup = s.suppliers.find(x => x.id === supplierId);
+          const priorP = s.purchases.filter(x => x.supplier_id === supplierId && x.payment_mode === "credit" && !x.deleted_at && x.entry_date < fromD).reduce((a, x) => a + x.amount, 0);
+          const priorPay = s.payments.filter(x => x.supplier_id === supplierId && !x.deleted_at && x.entry_date < fromD).reduce((a, x) => a + x.amount, 0);
+          let bal = (sup?.opening_balance || 0) + priorP - priorPay;
+          const opening = bal;
+          const purchases = s.purchases.filter(x => x.supplier_id === supplierId && !x.deleted_at && x.entry_date >= fromD && x.entry_date <= toD).map(x => ({ ...x, kind: "purchase" as const }));
+          const payments = s.payments.filter(x => x.supplier_id === supplierId && !x.deleted_at && x.entry_date >= fromD && x.entry_date <= toD).map(x => ({ ...x, kind: "payment" as const }));
+          let entries = [...purchases, ...payments];
+          if (ql) entries = entries.filter(e => `${e.item_name||""} ${e.invoice_no||""} ${e.reference_no||""} ${e.notes||""} ${e.mode||""}`.toLowerCase().includes(ql));
+          entries.sort((a, b) => a.entry_date.localeCompare(b.entry_date) || String(a.id).localeCompare(String(b.id)));
+          const rows: SupplierLedgerRow[] = entries.map(e => {
+            if (e.kind === "purchase") { const debit = e.payment_mode === "credit" ? e.amount : 0; bal += debit; return { ...e, debit, credit: 0, balance: bal }; }
+            else { bal -= e.amount; return { ...e, debit: 0, credit: e.amount, balance: bal }; }
+          });
+          return { opening, rows, closing: bal };
+        },
+        async addPurchase(i) { const s = ld(); const id = newId(); const now = new Date().toISOString(); const amount = i.amount != null ? Number(i.amount) : (Number(i.qty)||0) * (Number(i.rate)||0); s.purchases.push({ id, supplier_id: i.supplier_id, entry_date: i.entry_date || today(), invoice_no: i.invoice_no ?? null, item_name: i.item_name ?? null, qty: i.qty ?? null, unit: i.unit ?? null, rate: i.rate ?? null, amount, payment_mode: i.payment_mode || "credit", notes: i.notes ?? null, deleted_at: null, created_at: now, updated_at: now }); sv(s); return { ok: true, id }; },
+        async addPayment(i) { const s = ld(); const id = newId(); const now = new Date().toISOString(); s.payments.push({ id, supplier_id: i.supplier_id, entry_date: i.entry_date || today(), amount: Number(i.amount), mode: i.mode || "cash", reference_no: i.reference_no ?? null, notes: i.notes ?? null, deleted_at: null, created_at: now, updated_at: now }); sv(s); return { ok: true, id }; },
+        async deletePurchase(id) { const s = ld(); const r = s.purchases.find(x => x.id === id); if (r) { r.deleted_at = new Date().toISOString(); sv(s); } return { ok: true }; },
+        async deletePayment(id) { const s = ld(); const r = s.payments.find(x => x.id === id); if (r) { r.deleted_at = new Date().toISOString(); sv(s); } return { ok: true }; },
+        async totals(args = {}) { const s = ld(); const fromD = args.from || "0000-01-01", toD = args.to || "9999-12-31"; const purchases = s.purchases.filter(x => !x.deleted_at && x.entry_date >= fromD && x.entry_date <= toD).reduce((a, x) => a + x.amount, 0); const payments = s.payments.filter(x => !x.deleted_at && x.entry_date >= fromD && x.entry_date <= toD).reduce((a, x) => a + x.amount, 0); const out = s.suppliers.filter(x => !x.deleted_at).reduce((a, sup) => a + outstanding(s, sup.id), 0); return { purchases, payments, outstanding: out }; },
+      };
+    })(),
     print: {
       async receipt(p) {
         const w = window.open("", "_blank", "width=320,height=480");

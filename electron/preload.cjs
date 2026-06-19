@@ -9,6 +9,10 @@ contextBridge.exposeInMainWorld("api", {
     logout: () => invoke("auth:logout"),
     change: (currentPassword, newUsername, newPassword) => invoke("auth:change", { currentPassword, newUsername, newPassword }),
   },
+  setup: {
+    status: () => invoke("setup:status"),
+    complete: (payload) => invoke("setup:complete", payload),
+  },
   settings: {
     getAll: () => invoke("settings:getAll"),
     set: (key, value) => invoke("settings:set", { key, value }),
@@ -62,6 +66,19 @@ contextBridge.exposeInMainWorld("api", {
     deleteEntry: (id) => invoke("purchases:deleteEntry", { id }),
     totals: (args) => invoke("purchases:totals", args || {}),
     expensesByCategory: (from, to) => invoke("purchases:expensesByCategory", { from, to }),
+  },
+  supplierLedger: {
+    suppliers: (q) => invoke("sl:suppliers", { q }),
+    supplier: (id) => invoke("sl:supplier", { id }),
+    addSupplier: (input) => invoke("sl:addSupplier", input),
+    updateSupplier: (input) => invoke("sl:updateSupplier", input),
+    deleteSupplier: (id) => invoke("sl:deleteSupplier", { id }),
+    ledger: (args) => invoke("sl:ledger", args),
+    addPurchase: (input) => invoke("sl:addPurchase", input),
+    addPayment: (input) => invoke("sl:addPayment", input),
+    deletePurchase: (id) => invoke("sl:deletePurchase", { id }),
+    deletePayment: (id) => invoke("sl:deletePayment", { id }),
+    totals: (args) => invoke("sl:totals", args || {}),
   },
   print: {
     receipt: (payload) => invoke("print:receipt", payload),

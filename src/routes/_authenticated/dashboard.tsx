@@ -13,6 +13,7 @@ const tiles = [
   { to: "/monthly", key: "monthlyClients", icon: CalendarDays, color: "from-success to-success/70" },
   { to: "/monthly/deliveries", key: "dailyDeliveries", icon: ListChecks, color: "from-success to-success/70" },
   { to: "/purchases", key: "purchases", icon: Truck, color: "from-warning to-warning/70" },
+  { to: "/suppliers", key: "supplierLedger", icon: Users, color: "from-accent to-accent/70" },
   { to: "/reports", key: "reports", icon: FileBarChart, color: "from-warning to-warning/70" },
   { to: "/reports/summary", key: "summaryReport", icon: FileBarChart, color: "from-primary to-primary/70" },
   { to: "/settings", key: "settings", icon: SettingsIcon, color: "from-foreground/80 to-foreground/60" },
