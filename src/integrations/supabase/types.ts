@@ -14,74 +14,255 @@ export type Database = {
   }
   public: {
     Tables: {
-      cash_sales: {
+      branches: {
         Row: {
-          amount: number
+          address: string | null
+          business_id: string
           created_at: string
           id: string
-          operator_name: string | null
-          slip_number: number
-          user_id: string
+          is_default: boolean
+          name: string
+          updated_at: string
         }
         Insert: {
-          amount: number
+          address?: string | null
+          business_id: string
           created_at?: string
           id?: string
-          operator_name?: string | null
-          slip_number?: number
-          user_id: string
+          is_default?: boolean
+          name: string
+          updated_at?: string
         }
         Update: {
-          amount?: number
+          address?: string | null
+          business_id?: string
           created_at?: string
           id?: string
-          operator_name?: string | null
-          slip_number?: number
-          user_id?: string
+          is_default?: boolean
+          name?: string
+          updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "branches_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      monthly_bills: {
+      business_members: {
         Row: {
-          amount_paid: number
-          billing_month: string
-          client_id: string
+          branch_id: string | null
+          business_id: string
           created_at: string
           id: string
-          notes: string | null
-          status: string
-          total_amount: number
-          total_quantity: number
+          role: Database["public"]["Enums"]["business_role"]
           user_id: string
         }
         Insert: {
-          amount_paid?: number
-          billing_month: string
-          client_id: string
+          branch_id?: string | null
+          business_id: string
           created_at?: string
           id?: string
-          notes?: string | null
-          status?: string
-          total_amount?: number
-          total_quantity?: number
+          role?: Database["public"]["Enums"]["business_role"]
           user_id: string
         }
         Update: {
-          amount_paid?: number
-          billing_month?: string
-          client_id?: string
+          branch_id?: string | null
+          business_id?: string
           created_at?: string
           id?: string
-          notes?: string | null
-          status?: string
-          total_amount?: number
-          total_quantity?: number
+          role?: Database["public"]["Enums"]["business_role"]
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "monthly_bills_client_id_fkey"
-            columns: ["client_id"]
+            foreignKeyName: "business_members_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_members_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      businesses: {
+        Row: {
+          address: string | null
+          created_at: string
+          currency: string
+          id: string
+          language: string
+          name: string
+          owner_user_id: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          language?: string
+          name: string
+          owner_user_id: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          language?: string
+          name?: string
+          owner_user_id?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cash_sales: {
+        Row: {
+          amount: number
+          branch_id: string | null
+          business_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          operator_name: string | null
+          sale_at: string
+          slip_number: number | null
+          sync_version: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount: number
+          branch_id?: string | null
+          business_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          operator_name?: string | null
+          sale_at?: string
+          slip_number?: number | null
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          branch_id?: string | null
+          business_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          operator_name?: string | null
+          sale_at?: string
+          slip_number?: number | null
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_sales_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_sales_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_pauses: {
+        Row: {
+          branch_id: string | null
+          business_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          from_date: string
+          id: string
+          monthly_client_id: string
+          reason: string | null
+          sync_version: number
+          to_date: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          branch_id?: string | null
+          business_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          from_date: string
+          id?: string
+          monthly_client_id: string
+          reason?: string | null
+          sync_version?: number
+          to_date: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          branch_id?: string | null
+          business_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          from_date?: string
+          id?: string
+          monthly_client_id?: string
+          reason?: string | null
+          sync_version?: number
+          to_date?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_pauses_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_pauses_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_pauses_monthly_client_id_fkey"
+            columns: ["monthly_client_id"]
             isOneToOne: false
             referencedRelation: "monthly_clients"
             referencedColumns: ["id"]
@@ -90,135 +271,667 @@ export type Database = {
       }
       monthly_clients: {
         Row: {
+          active: boolean
           address: string | null
+          branch_id: string | null
+          business_id: string
+          client_id: string | null
           created_at: string
+          created_by: string | null
           daily_quantity: number
+          deleted_at: string | null
           id: string
           milk_type: string | null
           mobile: string | null
           name: string
           rate_per_liter: number
-          user_id: string
+          sync_version: number
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
+          active?: boolean
           address?: string | null
+          branch_id?: string | null
+          business_id: string
+          client_id?: string | null
           created_at?: string
+          created_by?: string | null
           daily_quantity?: number
+          deleted_at?: string | null
           id?: string
           milk_type?: string | null
           mobile?: string | null
           name: string
           rate_per_liter?: number
-          user_id: string
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
+          active?: boolean
           address?: string | null
+          branch_id?: string | null
+          business_id?: string
+          client_id?: string | null
           created_at?: string
+          created_by?: string | null
           daily_quantity?: number
+          deleted_at?: string | null
           id?: string
           milk_type?: string | null
           mobile?: string | null
           name?: string
           rate_per_liter?: number
-          user_id?: string
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "monthly_clients_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_clients_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      profiles: {
+      monthly_deliveries: {
         Row: {
+          branch_id: string | null
+          business_id: string
+          client_id: string | null
           created_at: string
-          full_name: string | null
+          created_by: string | null
+          deleted_at: string | null
+          delivery_date: string
           id: string
-          language: string
-          shop_address: string | null
-          shop_logo_url: string | null
-          shop_name: string | null
-          shop_phone: string | null
+          monthly_client_id: string
+          quantity: number
+          rate: number
+          status: string
+          sync_version: number
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
+          branch_id?: string | null
+          business_id: string
+          client_id?: string | null
           created_at?: string
-          full_name?: string | null
-          id: string
-          language?: string
-          shop_address?: string | null
-          shop_logo_url?: string | null
-          shop_name?: string | null
-          shop_phone?: string | null
+          created_by?: string | null
+          deleted_at?: string | null
+          delivery_date: string
+          id?: string
+          monthly_client_id: string
+          quantity?: number
+          rate?: number
+          status?: string
+          sync_version?: number
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
+          branch_id?: string | null
+          business_id?: string
+          client_id?: string | null
           created_at?: string
-          full_name?: string | null
+          created_by?: string | null
+          deleted_at?: string | null
+          delivery_date?: string
           id?: string
-          language?: string
-          shop_address?: string | null
-          shop_logo_url?: string | null
-          shop_name?: string | null
-          shop_phone?: string | null
+          monthly_client_id?: string
+          quantity?: number
+          rate?: number
+          status?: string
+          sync_version?: number
           updated_at?: string
+          updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "monthly_deliveries_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_deliveries_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_deliveries_monthly_client_id_fkey"
+            columns: ["monthly_client_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_payments: {
+        Row: {
+          amount: number
+          branch_id: string | null
+          business_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          monthly_client_id: string
+          note: string | null
+          payment_date: string
+          period: string | null
+          sync_version: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount: number
+          branch_id?: string | null
+          business_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          monthly_client_id: string
+          note?: string | null
+          payment_date: string
+          period?: string | null
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          branch_id?: string | null
+          business_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          monthly_client_id?: string
+          note?: string | null
+          payment_date?: string
+          period?: string | null
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_payments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_payments_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_payments_monthly_client_id_fkey"
+            columns: ["monthly_client_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_categories: {
+        Row: {
+          branch_id: string | null
+          business_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          kind: string
+          name: string
+          sync_version: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          branch_id?: string | null
+          business_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          kind?: string
+          name: string
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          branch_id?: string | null
+          business_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_categories_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_categories_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchases: {
+        Row: {
+          amount: number
+          branch_id: string | null
+          business_id: string
+          category_id: string | null
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          invoice_no: string | null
+          notes: string | null
+          payment_mode: string
+          purchase_date: string
+          qty: number
+          rate: number
+          supplier_id: string | null
+          sync_version: number
+          unit: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount?: number
+          branch_id?: string | null
+          business_id: string
+          category_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          invoice_no?: string | null
+          notes?: string | null
+          payment_mode?: string
+          purchase_date: string
+          qty?: number
+          rate?: number
+          supplier_id?: string | null
+          sync_version?: number
+          unit?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          branch_id?: string | null
+          business_id?: string
+          category_id?: string | null
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          invoice_no?: string | null
+          notes?: string | null
+          payment_mode?: string
+          purchase_date?: string
+          qty?: number
+          rate?: number
+          supplier_id?: string | null
+          sync_version?: number
+          unit?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_payments: {
+        Row: {
+          amount: number
+          branch_id: string | null
+          business_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          mode: string
+          notes: string | null
+          payment_date: string
+          reference_no: string | null
+          supplier_id: string
+          sync_version: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount: number
+          branch_id?: string | null
+          business_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          mode?: string
+          notes?: string | null
+          payment_date: string
+          reference_no?: string | null
+          supplier_id: string
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          branch_id?: string | null
+          business_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          mode?: string
+          notes?: string | null
+          payment_date?: string
+          reference_no?: string | null
+          supplier_id?: string
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_payments_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_payments_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_payments_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      suppliers: {
+        Row: {
+          address: string | null
+          branch_id: string | null
+          business_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
+          id: string
+          mobile: string | null
+          name: string
+          notes: string | null
+          opening_balance: number
+          sync_version: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          address?: string | null
+          branch_id?: string | null
+          business_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          mobile?: string | null
+          name: string
+          notes?: string | null
+          opening_balance?: number
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          address?: string | null
+          branch_id?: string | null
+          business_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
+          id?: string
+          mobile?: string | null
+          name?: string
+          notes?: string | null
+          opening_balance?: number
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suppliers_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suppliers_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       udhar_customers: {
         Row: {
           address: string | null
+          branch_id: string | null
+          business_id: string
+          client_id: string | null
           created_at: string
+          created_by: string | null
+          deleted_at: string | null
           id: string
           mobile: string | null
           name: string
-          user_id: string
+          sync_version: number
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           address?: string | null
+          branch_id?: string | null
+          business_id: string
+          client_id?: string | null
           created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
           id?: string
           mobile?: string | null
           name: string
-          user_id: string
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           address?: string | null
+          branch_id?: string | null
+          business_id?: string
+          client_id?: string | null
           created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
           id?: string
           mobile?: string | null
           name?: string
-          user_id?: string
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "udhar_customers_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "udhar_customers_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       udhar_entries: {
         Row: {
           amount: number
+          branch_id: string | null
+          business_id: string
+          client_id: string | null
           created_at: string
+          created_by: string | null
           customer_id: string
+          deleted_at: string | null
           entry_date: string
           entry_type: string
           id: string
           notes: string | null
-          user_id: string
+          sync_version: number
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           amount: number
+          branch_id?: string | null
+          business_id: string
+          client_id?: string | null
           created_at?: string
+          created_by?: string | null
           customer_id: string
+          deleted_at?: string | null
           entry_date?: string
           entry_type: string
           id?: string
           notes?: string | null
-          user_id: string
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           amount?: number
+          branch_id?: string | null
+          business_id?: string
+          client_id?: string | null
           created_at?: string
+          created_by?: string | null
           customer_id?: string
+          deleted_at?: string | null
           entry_date?: string
           entry_type?: string
           id?: string
           notes?: string | null
-          user_id?: string
+          sync_version?: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "udhar_entries_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "udhar_entries_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "udhar_entries_customer_id_fkey"
             columns: ["customer_id"]
@@ -228,42 +941,27 @@ export type Database = {
           },
         ]
       }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      apply_changes: {
+        Args: { p_business_id: string; p_changes: Json; p_device_id: string }
+        Returns: Json
       }
+      business_role_of: {
+        Args: { _business_id: string }
+        Returns: Database["public"]["Enums"]["business_role"]
+      }
+      get_changes: {
+        Args: { p_business_id: string; p_limit?: number; p_since?: string }
+        Returns: Json
+      }
+      is_business_member: { Args: { _business_id: string }; Returns: boolean }
     }
     Enums: {
-      app_role: "owner" | "staff"
+      business_role: "owner" | "manager" | "staff"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -391,7 +1089,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["owner", "staff"],
+      business_role: ["owner", "manager", "staff"],
     },
   },
 } as const
