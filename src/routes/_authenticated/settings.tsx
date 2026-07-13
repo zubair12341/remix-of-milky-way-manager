@@ -9,8 +9,9 @@ import { useLang } from "@/lib/i18n";
 import { api, isElectron, type PrinterInfo } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
 import { BackButton } from "@/components/BackButton";
-import { Store, Lock, Printer as PrinterIcon, Database, AlertTriangle, Cloud, LogOut } from "lucide-react";
+import { Store, Lock, Printer as PrinterIcon, Database, AlertTriangle, Cloud, LogOut, RefreshCw } from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { syncNow, subscribe as subscribeSync, startSync, type SyncStatus } from "@/lib/sync";
 import { cloudSession, cloudSignOut, listBusinesses, createBusiness, pairBusiness, getPairing, type CloudPairing } from "@/lib/cloud";
 
 export const Route = createFileRoute("/_authenticated/settings")({ component: Settings });
@@ -26,6 +27,7 @@ function Settings() {
   const [pairing, setPairingState] = useState<CloudPairing | null>(null);
   const [businesses, setBusinesses] = useState<{ id: string; name: string }[]>([]);
   const [newBiz, setNewBiz] = useState("");
+  const [syncState, setSyncState] = useState<SyncStatus | null>(null);
 
   const refreshCloud = async () => {
     const s = await cloudSession();
@@ -39,6 +41,9 @@ function Settings() {
     api().settings.getAll().then(s => setShop({ shop_name: s.shop_name || "", logo_data_url: s.logo_data_url || "", printer_name: s.printer_name || "", receipt_width: s.receipt_width || "80" }));
     api().settings.getPrinters().then(setPrinters);
     refreshCloud();
+    const unsub = subscribeSync(setSyncState);
+    startSync();
+    return () => { unsub(); };
   }, []);
 
   const doCreateBusiness = async () => {
@@ -192,6 +197,20 @@ function Settings() {
                     <Button onClick={doCreateBusiness}>Create</Button>
                   </div>
                 </div>
+              </div>
+            )}
+            {pairing?.business_id && (
+              <div className="border rounded-md p-3 bg-muted/20 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">Sync status</span>
+                  <Button size="sm" variant="outline" onClick={() => syncNow()} disabled={syncState?.running}>
+                    <RefreshCw className={`w-4 h-4 mr-1 ${syncState?.running ? "animate-spin" : ""}`} /> Sync now
+                  </Button>
+                </div>
+                <div>Network: <span className={syncState?.online ? "text-success font-semibold" : "text-destructive font-semibold"}>{syncState?.online ? "Online" : "Offline"}</span></div>
+                <div>Last pull: <span className="font-mono text-xs">{syncState?.lastPullAt ? new Date(syncState.lastPullAt).toLocaleString() : "—"}</span></div>
+                {syncState?.lastError && <div className="text-destructive">Error: {syncState.lastError}</div>}
+                <p className="text-xs text-muted-foreground">Cloud pull is active. Local→cloud push activates after the UUID migration (Phase 3).</p>
               </div>
             )}
             <Button variant="outline" onClick={doSignOutCloud}><LogOut className="w-4 h-4 mr-2" /> Sign out of cloud</Button>
