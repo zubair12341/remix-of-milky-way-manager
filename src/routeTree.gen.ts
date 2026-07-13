@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as CloudSigninRouteImport } from './routes/cloud-signin'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -37,6 +38,11 @@ import { Route as AuthenticatedMonthlyClientIdRouteImport } from './routes/_auth
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CloudSigninRoute = CloudSigninRouteImport.update({
+  id: '/cloud-signin',
+  path: '/cloud-signin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -169,6 +175,7 @@ const AuthenticatedMonthlyClientIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cloud-signin': typeof CloudSigninRoute
   '/setup': typeof SetupRoute
   '/cash-counter': typeof AuthenticatedCashCounterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cloud-signin': typeof CloudSigninRoute
   '/setup': typeof SetupRoute
   '/cash-counter': typeof AuthenticatedCashCounterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/cloud-signin': typeof CloudSigninRoute
   '/setup': typeof SetupRoute
   '/_authenticated/cash-counter': typeof AuthenticatedCashCounterRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/cloud-signin'
     | '/setup'
     | '/cash-counter'
     | '/dashboard'
@@ -268,6 +278,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/cloud-signin'
     | '/setup'
     | '/cash-counter'
     | '/dashboard'
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/cloud-signin'
     | '/setup'
     | '/_authenticated/cash-counter'
     | '/_authenticated/dashboard'
@@ -316,6 +328,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  CloudSigninRoute: typeof CloudSigninRoute
   SetupRoute: typeof SetupRoute
 }
 
@@ -326,6 +339,13 @@ declare module '@tanstack/react-router' {
       path: '/setup'
       fullPath: '/setup'
       preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cloud-signin': {
+      id: '/cloud-signin'
+      path: '/cloud-signin'
+      fullPath: '/cloud-signin'
+      preLoaderRoute: typeof CloudSigninRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -598,6 +618,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  CloudSigninRoute: CloudSigninRoute,
   SetupRoute: SetupRoute,
 }
 export const routeTree = rootRouteImport

@@ -9,7 +9,9 @@ import { useLang } from "@/lib/i18n";
 import { api, isElectron, type PrinterInfo } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
 import { BackButton } from "@/components/BackButton";
-import { Store, Lock, Printer as PrinterIcon, Database, AlertTriangle } from "lucide-react";
+import { Store, Lock, Printer as PrinterIcon, Database, AlertTriangle, Cloud, LogOut } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { cloudSession, cloudSignOut, listBusinesses, createBusiness, pairBusiness, getPairing, type CloudPairing } from "@/lib/cloud";
 
 export const Route = createFileRoute("/_authenticated/settings")({ component: Settings });
 
