@@ -38,7 +38,19 @@ function Settings() {
   useEffect(() => {
     api().settings.getAll().then(s => setShop({ shop_name: s.shop_name || "", logo_data_url: s.logo_data_url || "", printer_name: s.printer_name || "", receipt_width: s.receipt_width || "80" }));
     api().settings.getPrinters().then(setPrinters);
+    refreshCloud();
   }, []);
+
+  const doCreateBusiness = async () => {
+    if (!newBiz.trim()) return toast.error("Business name required");
+    try { const b = await createBusiness(newBiz.trim()); await pairBusiness(b.id, b.name); setNewBiz(""); await refreshCloud(); toast.success("Business created and paired"); }
+    catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  };
+  const doPair = async (id: string, name: string) => {
+    try { await pairBusiness(id, name); await refreshCloud(); toast.success("Paired with " + name); }
+    catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  };
+  const doSignOutCloud = async () => { await cloudSignOut(); await refreshCloud(); toast.success("Signed out of cloud"); };
 
   const saveShop = async () => {
     await api().settings.set("shop_name", shop.shop_name);
