@@ -159,6 +159,46 @@ function Settings() {
         </div>
       </Card>
 
+      <Card className="p-6 space-y-3">
+        <div className="flex items-center gap-2"><Cloud className="w-5 h-5 text-primary" /><h2 className="text-xl font-bold">Cloud Sync (optional)</h2></div>
+        {!cloudEmail ? (
+          <>
+            <p className="text-sm text-muted-foreground">Sign in to sync your data across devices. Your app keeps working offline either way.</p>
+            <Link to="/cloud-signin"><Button><Cloud className="w-4 h-4 mr-2" /> Enable Cloud Sync</Button></Link>
+          </>
+        ) : (
+          <>
+            <p className="text-sm">Signed in as <span className="font-bold">{cloudEmail}</span></p>
+            {pairing?.business_id ? (
+              <p className="text-sm text-success">Paired with business: <span className="font-bold">{pairing.business_name}</span></p>
+            ) : (
+              <div className="space-y-3 border rounded-md p-3 bg-muted/20">
+                <p className="text-sm font-semibold">Pair this device with a business</p>
+                {businesses.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Existing businesses</Label>
+                    {businesses.map(b => (
+                      <div key={b.id} className="flex items-center justify-between border rounded p-2">
+                        <span>{b.name}</span>
+                        <Button size="sm" onClick={() => doPair(b.id, b.name)}>Pair</Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>Or create a new business</Label>
+                  <div className="flex gap-2">
+                    <Input value={newBiz} onChange={(e) => setNewBiz(e.target.value)} placeholder="e.g. Ali Milk Shop" />
+                    <Button onClick={doCreateBusiness}>Create</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <Button variant="outline" onClick={doSignOutCloud}><LogOut className="w-4 h-4 mr-2" /> Sign out of cloud</Button>
+          </>
+        )}
+      </Card>
+
       <Card className="p-6 space-y-3 border-destructive/40">
         <div className="flex items-center gap-2 text-destructive"><AlertTriangle className="w-5 h-5" /><h2 className="text-xl font-bold">{t("dangerZone")}</h2></div>
         <p className="text-sm text-muted-foreground">{t("clearWarning")}</p>
