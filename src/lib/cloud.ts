@@ -57,7 +57,7 @@ export async function createBusiness(name: string) {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) throw new Error("Not signed in");
-  const { data, error } = await supabase.from("businesses").insert({ name, owner_id: uid }).select("id,name").single();
+  const { data, error } = await supabase.from("businesses").insert({ name, owner_user_id: uid }).select("id,name").single();
   if (error) throw error;
   // Auto-add as owner member (in case a trigger doesn't handle it)
   await supabase.from("business_members").insert({ business_id: data.id, user_id: uid, role: "owner" as any }).select().maybeSingle();
