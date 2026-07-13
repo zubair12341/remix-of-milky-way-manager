@@ -22,6 +22,18 @@ function Settings() {
   const [printers, setPrinters] = useState<PrinterInfo[]>([]);
   const [cur, setCur] = useState(""); const [newU, setNewU] = useState(""); const [newP, setNewP] = useState("");
   const [clearPwd, setClearPwd] = useState("");
+  const [cloudEmail, setCloudEmail] = useState<string | null>(null);
+  const [pairing, setPairingState] = useState<CloudPairing | null>(null);
+  const [businesses, setBusinesses] = useState<{ id: string; name: string }[]>([]);
+  const [newBiz, setNewBiz] = useState("");
+
+  const refreshCloud = async () => {
+    const s = await cloudSession();
+    setCloudEmail(s?.user?.email ?? null);
+    setPairingState(getPairing());
+    if (s) { try { setBusinesses(await listBusinesses()); } catch { setBusinesses([]); } }
+    else setBusinesses([]);
+  };
 
   useEffect(() => {
     api().settings.getAll().then(s => setShop({ shop_name: s.shop_name || "", logo_data_url: s.logo_data_url || "", printer_name: s.printer_name || "", receipt_width: s.receipt_width || "80" }));
