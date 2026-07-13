@@ -9,7 +9,9 @@ import { useLang } from "@/lib/i18n";
 import { api, isElectron, type PrinterInfo } from "@/lib/db";
 import { useAuth } from "@/lib/auth";
 import { BackButton } from "@/components/BackButton";
-import { Store, Lock, Printer as PrinterIcon, Database, AlertTriangle } from "lucide-react";
+import { Store, Lock, Printer as PrinterIcon, Database, AlertTriangle, Cloud, LogOut } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { cloudSession, cloudSignOut, listBusinesses, createBusiness, pairBusiness, getPairing, type CloudPairing } from "@/lib/cloud";
 
 export const Route = createFileRoute("/_authenticated/settings")({ component: Settings });
 
@@ -20,11 +22,35 @@ function Settings() {
   const [printers, setPrinters] = useState<PrinterInfo[]>([]);
   const [cur, setCur] = useState(""); const [newU, setNewU] = useState(""); const [newP, setNewP] = useState("");
   const [clearPwd, setClearPwd] = useState("");
+  const [cloudEmail, setCloudEmail] = useState<string | null>(null);
+  const [pairing, setPairingState] = useState<CloudPairing | null>(null);
+  const [businesses, setBusinesses] = useState<{ id: string; name: string }[]>([]);
+  const [newBiz, setNewBiz] = useState("");
+
+  const refreshCloud = async () => {
+    const s = await cloudSession();
+    setCloudEmail(s?.user?.email ?? null);
+    setPairingState(getPairing());
+    if (s) { try { setBusinesses(await listBusinesses()); } catch { setBusinesses([]); } }
+    else setBusinesses([]);
+  };
 
   useEffect(() => {
     api().settings.getAll().then(s => setShop({ shop_name: s.shop_name || "", logo_data_url: s.logo_data_url || "", printer_name: s.printer_name || "", receipt_width: s.receipt_width || "80" }));
     api().settings.getPrinters().then(setPrinters);
+    refreshCloud();
   }, []);
+
+  const doCreateBusiness = async () => {
+    if (!newBiz.trim()) return toast.error("Business name required");
+    try { const b = await createBusiness(newBiz.trim()); await pairBusiness(b.id, b.name); setNewBiz(""); await refreshCloud(); toast.success("Business created and paired"); }
+    catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  };
+  const doPair = async (id: string, name: string) => {
+    try { await pairBusiness(id, name); await refreshCloud(); toast.success("Paired with " + name); }
+    catch (e: any) { toast.error(e?.message ?? "Failed"); }
+  };
+  const doSignOutCloud = async () => { await cloudSignOut(); await refreshCloud(); toast.success("Signed out of cloud"); };
 
   const saveShop = async () => {
     await api().settings.set("shop_name", shop.shop_name);
@@ -131,6 +157,46 @@ function Settings() {
           <Button variant="outline" onClick={async () => { const r = await api().data.backup(); if (r.ok) toast.success("Saved: " + r.path); }}>{t("backupDb")}</Button>
           <Button variant="outline" onClick={async () => { const r = await api().data.restore(); if (r.ok) toast.success("Restored. Restarting…"); }}>{t("restoreDb")}</Button>
         </div>
+      </Card>
+
+      <Card className="p-6 space-y-3">
+        <div className="flex items-center gap-2"><Cloud className="w-5 h-5 text-primary" /><h2 className="text-xl font-bold">Cloud Sync (optional)</h2></div>
+        {!cloudEmail ? (
+          <>
+            <p className="text-sm text-muted-foreground">Sign in to sync your data across devices. Your app keeps working offline either way.</p>
+            <Link to="/cloud-signin"><Button><Cloud className="w-4 h-4 mr-2" /> Enable Cloud Sync</Button></Link>
+          </>
+        ) : (
+          <>
+            <p className="text-sm">Signed in as <span className="font-bold">{cloudEmail}</span></p>
+            {pairing?.business_id ? (
+              <p className="text-sm text-success">Paired with business: <span className="font-bold">{pairing.business_name}</span></p>
+            ) : (
+              <div className="space-y-3 border rounded-md p-3 bg-muted/20">
+                <p className="text-sm font-semibold">Pair this device with a business</p>
+                {businesses.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Existing businesses</Label>
+                    {businesses.map(b => (
+                      <div key={b.id} className="flex items-center justify-between border rounded p-2">
+                        <span>{b.name}</span>
+                        <Button size="sm" onClick={() => doPair(b.id, b.name)}>Pair</Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label>Or create a new business</Label>
+                  <div className="flex gap-2">
+                    <Input value={newBiz} onChange={(e) => setNewBiz(e.target.value)} placeholder="e.g. Ali Milk Shop" />
+                    <Button onClick={doCreateBusiness}>Create</Button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <Button variant="outline" onClick={doSignOutCloud}><LogOut className="w-4 h-4 mr-2" /> Sign out of cloud</Button>
+          </>
+        )}
       </Card>
 
       <Card className="p-6 space-y-3 border-destructive/40">
