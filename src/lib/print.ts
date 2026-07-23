@@ -51,17 +51,33 @@ export function escape(s: any) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
 }
 
-export async function printDocument(html: string) {
+export async function printDocument(html: string, thermal = false) {
   const a = api();
   if (a.isElectron && a.print?.html) {
-    return a.print.html(html, false);
+    // Desktop app: fully silent, straight to configured printer.
+    return a.print.html(html, thermal);
   }
-  // Browser fallback: open new window
-  const w = window.open("", "_blank", "width=900,height=700");
-  if (!w) return { ok: false, error: "Popup blocked" };
-  w.document.write(html); w.document.close(); w.focus();
-  setTimeout(() => w.print(), 250);
-  return { ok: true };
+  // Browser preview fallback: hidden iframe (no popup window). The browser
+  // will still show its native print dialog — this is a browser limitation.
+  // In the packaged Windows app this code path is never used.
+  return new Promise<{ ok: boolean; error?: string }>((resolve) => {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument!;
+    doc.open(); doc.write(html); doc.close();
+    const cleanup = () => { setTimeout(() => iframe.remove(), 500); resolve({ ok: true }); };
+    iframe.onload = () => {
+      try { iframe.contentWindow!.focus(); iframe.contentWindow!.print(); } catch {}
+      cleanup();
+    };
+    setTimeout(cleanup, 3000);
+  });
 }
 
 export async function loadShopMeta(): Promise<PrintMeta> {
