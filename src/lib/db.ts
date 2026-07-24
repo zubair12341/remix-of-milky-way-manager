@@ -363,19 +363,25 @@ function stubApi(): NonNullable<Window["api"]> {
     })(),
     print: {
       async receipt(p) {
-        const w = window.open("", "_blank", "width=320,height=480");
-        if (!w) return { ok: false, error: "Popup blocked" };
-        w.document.write(`<style>body{font-family:monospace;text-align:center;padding:8px;width:80mm}</style>${p.logo_data_url ? `<img src="${p.logo_data_url}" style="max-height:60px"/>` : ""}<h3>${p.shop_name}</h3><p>Invoice #${p.invoice_no}<br>${p.date}</p><h1>Rs. ${p.amount}</h1>`);
-        w.document.close(); w.focus(); w.print(); setTimeout(() => w.close(), 500);
-        return { ok: true };
+        const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+          @page{size:80mm auto;margin:0}
+          html,body{margin:0;padding:0}
+          body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:4mm 3mm;text-align:center}
+          .logo{max-height:14mm;max-width:60%;object-fit:contain;display:block;margin:0 auto 2mm}
+          .inv{text-align:left;font-size:10pt;font-weight:700;margin-bottom:3mm}
+          .amt-box{border:2px solid #000;border-radius:2mm;padding:4mm 2mm;margin:2mm 0}
+          .amt{font-size:26pt;font-weight:900;letter-spacing:1px;line-height:1}
+          .foot{margin-top:5mm;font-size:8pt;font-style:italic;border-top:1px dashed #000;padding-top:2mm}
+        </style></head><body>
+          ${p.logo_data_url?`<img class="logo" src="${p.logo_data_url}"/>`:''}
+          <div class="inv">Invoice #${p.invoice_no}<br/><span style="font-weight:400">${p.date}</span></div>
+          <div class="amt-box"><div class="amt">Rs. ${Number(p.amount).toLocaleString()}</div></div>
+          <div class="foot">Designed &amp; developed by Zubair Khan</div>
+        </body></html>`;
+        return printViaIframe(html);
       },
       async test() { alert("Test print is only available in the desktop build."); return { ok: false }; },
-      async html(html) {
-        const w = window.open("", "_blank", "width=900,height=700");
-        if (!w) return { ok: false, error: "Popup blocked" };
-        w.document.write(html); w.document.close(); w.focus(); setTimeout(() => { w.print(); }, 250);
-        return { ok: true };
-      },
+      async html(html) { return printViaIframe(html); },
     },
     data: {
       async backup() { alert("Backup is only available in the desktop build."); return { ok: false }; },
