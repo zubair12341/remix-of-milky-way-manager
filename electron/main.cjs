@@ -303,9 +303,23 @@ ipcMain.handle("data:clearAll", (_e, { currentPassword }) => {
 
 // ---- Printing ----
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function buildReceiptHtml({ invoice_no, amount, date, shop_name, logo_data_url, width_mm }) {
+function buildReceiptHtml({ invoice_no, amount, date, logo_data_url, width_mm }) {
   const widthCss = `${width_mm || 80}mm`;
-  return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:${widthCss} auto;margin:0}html,body{margin:0;padding:0}body{width:${widthCss};font-family:'Courier New',monospace;color:#000;text-align:center;padding:4mm 2mm}.logo{max-width:90%;max-height:18mm;object-fit:contain;margin:0 auto 2mm;display:block}.shop{font-size:12pt;font-weight:700;margin-bottom:2mm}.line{border-top:1px dashed #000;margin:2mm 0}.row{display:flex;justify-content:space-between;font-size:10pt;padding:0 1mm}.amt{font-size:22pt;font-weight:800;margin:3mm 0;letter-spacing:1px}</style></head><body>${logo_data_url?`<img class="logo" src="${logo_data_url}"/>`:''}<div class="shop">${escapeHtml(shop_name||'MILK SHOP')}</div><div class="line"></div><div class="row"><span>Invoice</span><span>#${invoice_no}</span></div><div class="row"><span>Date</span><span>${date}</span></div><div class="line"></div><div class="amt">Rs. ${Number(amount).toLocaleString()}</div><div class="line"></div></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+    @page{size:${widthCss} auto;margin:0}
+    html,body{margin:0;padding:0}
+    body{width:${widthCss};font-family:'Courier New',monospace;color:#000;padding:4mm 3mm;text-align:center}
+    .logo{max-height:14mm;max-width:60%;object-fit:contain;display:block;margin:0 auto 2mm}
+    .inv{text-align:left;font-size:10pt;font-weight:700;margin-bottom:3mm}
+    .amt-box{border:2px solid #000;border-radius:2mm;padding:4mm 2mm;margin:2mm 0}
+    .amt{font-size:26pt;font-weight:900;letter-spacing:1px;line-height:1}
+    .foot{margin-top:5mm;font-size:8pt;font-style:italic;border-top:1px dashed #000;padding-top:2mm}
+  </style></head><body>
+    ${logo_data_url?`<img class="logo" src="${logo_data_url}"/>`:''}
+    <div class="inv">Invoice #${invoice_no}<br/><span style="font-weight:400">${date}</span></div>
+    <div class="amt-box"><div class="amt">Rs. ${Number(amount).toLocaleString()}</div></div>
+    <div class="foot">Designed &amp; developed by Zubair Khan</div>
+  </body></html>`;
 }
 async function silentPrint(html, opts={}) {
   const printerName = getSetting("printer_name") || "";
