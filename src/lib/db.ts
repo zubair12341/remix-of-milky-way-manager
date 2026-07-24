@@ -171,6 +171,20 @@ function save(s: Store) { try { localStorage.setItem(LS_KEY, JSON.stringify(s));
 function nextId(arr: { id: number }[]) { return arr.length ? Math.max(...arr.map(x => x.id)) + 1 : 1; }
 const today = () => new Date().toISOString().slice(0, 10);
 
+function printViaIframe(html: string): Promise<{ ok: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    if (typeof document === "undefined") return resolve({ ok: false, error: "No document" });
+    const iframe = document.createElement("iframe");
+    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument!;
+    doc.open(); doc.write(html); doc.close();
+    const done = () => { setTimeout(() => iframe.remove(), 800); resolve({ ok: true }); };
+    iframe.onload = () => { try { iframe.contentWindow!.focus(); iframe.contentWindow!.print(); } catch {} done(); };
+    setTimeout(done, 3000);
+  });
+}
+
 function clientBal(s: Store, cid: number) {
   const charges = s.deliveries.filter(d => d.client_id === cid).reduce((a, d) => a + d.amount, 0);
   const paid = s.monthly_payments.filter(p => p.client_id === cid).reduce((a, p) => a + p.amount, 0);
