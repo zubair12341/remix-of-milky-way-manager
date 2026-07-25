@@ -18,6 +18,18 @@ import { RouterProvider, createHashHistory } from "@tanstack/react-router";
 import { getRouter } from "@/router";
 
 console.log("[electron-renderer] bootstrap start");
+
+// A packaged Electron window opens as file://.../index.html. When no hash is
+// present, TanStack Router matches the root route. That route is only a web
+// startup convenience; on desktop it added one more async hop and could leave
+// users staring at "Starting..." if startup IPC was delayed. Boot the desktop
+// app straight into the setup gate instead. If setup is already complete, the
+// setup/auth routes immediately forward to sign-in or dashboard.
+const initialHash = window.location.hash.replace(/^#/, "");
+if (initialHash === "" || initialHash === "/" || initialHash.startsWith("/?")) {
+  window.location.hash = "/setup";
+}
+
 const router = getRouter({ history: createHashHistory() });
 console.log("[electron-renderer] router created, initial location:", router.state.location.href);
 const container = document.getElementById("root");

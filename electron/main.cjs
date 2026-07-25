@@ -4,6 +4,14 @@ const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
 
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+  process.exit(0);
+}
+
+let mainWindow = null;
+
 let Database, bcrypt;
 try { Database = require("better-sqlite3"); } catch (e) { console.error("better-sqlite3 missing"); throw e; }
 try { bcrypt = require("bcryptjs"); } catch (e) { console.error("bcryptjs missing"); throw e; }
@@ -35,6 +43,7 @@ try {
 } catch (e) { console.error("Pre-launch backup failed (non-fatal):", e); }
 
 const db = new Database(dbPath);
+db.pragma("busy_timeout = 5000");
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
@@ -483,11 +492,19 @@ function showLoadError(win, code, desc, url) {
 }
 
 function createWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+    return;
+  }
+
   const win = new BrowserWindow({
     width: 1280, height: 800, minWidth: 1024, minHeight: 700,
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, spellcheck: false },
   });
+  mainWindow = win;
+  win.on("closed", () => { if (mainWindow === win) mainWindow = null; });
 
   win.webContents.on("did-fail-load", (_e, code, desc, url) => {
     // -3 = user/HMR aborted, ignore
@@ -516,6 +533,11 @@ function createWindow() {
     }
   }
 }
+app.on("second-instance", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
+});
 app.whenReady().then(createWindow);
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
