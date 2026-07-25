@@ -30,7 +30,7 @@ export default defineConfig({
     tailwindcss(),
   ],
   build: {
-    outDir: path.join(here, "dist"),
+    outDir: path.join(here, "dist-electron"),
     emptyOutDir: true,
     target: "chrome120",
     sourcemap: false,

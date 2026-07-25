@@ -500,9 +500,9 @@ function createWindow() {
     win.loadURL(devUrl);
     win.webContents.openDevTools({ mode: "detach" });
   } else {
-    const indexPath = path.join(__dirname, "..", "dist", "index.html");
+    const indexPath = path.join(__dirname, "..", "dist-electron", "index.html");
     if (!fs.existsSync(indexPath)) {
-      showLoadError(win, "ENOENT", "dist/index.html missing (run `npm run build:electron` before packaging)", indexPath);
+      showLoadError(win, "ENOENT", "dist-electron/index.html missing (run `npm run build:electron` before packaging)", indexPath);
     } else {
       win.loadFile(indexPath);
     }
