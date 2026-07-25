@@ -27,7 +27,11 @@ console.log("[electron-renderer] bootstrap start");
 // setup/auth routes immediately forward to sign-in or dashboard.
 const initialHash = window.location.hash.replace(/^#/, "");
 if (initialHash === "" || initialHash === "/" || initialHash.startsWith("/?")) {
-  window.location.hash = "/setup";
+  // Use replaceState instead of assigning location.hash. The assignment fires a
+  // hashchange before TanStack Router owns the history object, which was the
+  // renderer-loop trigger in packaged Electron. replaceState seeds the initial
+  // desktop route without emitting a navigation event.
+  window.history.replaceState(null, "", "#/setup");
 }
 
 const router = getRouter({ history: createHashHistory() });
