@@ -16,6 +16,7 @@ function Gate() {
   // re-renders turned this into a hot render loop (renderer pegged 97% CPU,
   // DOM never committing past the "Loading…" fallback).
   useEffect(() => { if (!loading && !user) navigate({ to: "/auth", replace: true }); }, [user, loading]);
-  if (loading || !user) return <div className="min-h-screen grid place-items-center text-muted-foreground">Loading…</div>;
+  if (loading) return <div className="min-h-screen grid place-items-center text-muted-foreground">Checking session…</div>;
+  if (!user) return <div className="min-h-screen grid place-items-center text-muted-foreground">Opening sign in…</div>;
   return <Shell><Outlet /></Shell>;
 }

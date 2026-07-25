@@ -13,17 +13,48 @@ type Ctx = {
 
 const C = createContext<Ctx | null>(null);
 
+function withFallback<T>(promise: Promise<T>, fallback: T, label: string) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.error(`${label} timed out`);
+      resolve(fallback);
+    }, 4000);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = async () => {
-    const s = await api().auth.session();
-    setUser(s);
+    try {
+      const s = await withFallback(api().auth.session(), null, "Auth session check");
+      setUser(s);
+    } catch (error) {
+      console.error("Auth session check failed", error);
+      setUser(null);
+    }
   };
 
   useEffect(() => {
-    refresh().finally(() => setLoading(false));
+    let cancelled = false;
+
+    async function loadSession() {
+      try {
+        await refresh();
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadSession();
+
+    return () => { cancelled = true; };
   }, []);
 
   const signIn: Ctx["signIn"] = async (username, password) => {
