@@ -16,6 +16,16 @@ function withFallback<T>(promise: Promise<T>, fallback: T, label: string) {
 
 export const Route = createFileRoute("/")({
   ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Milk Shop Manager Desktop" },
+      { name: "description", content: "Desktop startup screen for Milk Shop Manager, routing safely to setup, sign in, or dashboard." },
+      { property: "og:title", content: "Milk Shop Manager Desktop" },
+      { property: "og:description", content: "Desktop startup screen for Milk Shop Manager, routing safely to setup, sign in, or dashboard." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: StartPage,
 });
 
