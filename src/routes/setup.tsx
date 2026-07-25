@@ -22,13 +22,15 @@ function SetupWizard() {
   const [printer, setPrinter] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // navigate() intentionally excluded from deps — see _authenticated/route.tsx.
   useEffect(() => {
     (async () => {
       const st = await api().setup.status();
       if (st.complete) navigate({ to: "/auth", replace: true });
       try { const list = await api().settings.getPrinters(); setPrinters(list); } catch {}
     })();
-  }, [navigate]);
+     
+  }, []);
 
   const onLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return;
