@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api } from "@/lib/db";
 
 type User = { id: number; username: string };
@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       const s = await withFallback(api().auth.session(), null, "Auth session check");
       setUser(s);
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Auth session check failed", error);
       setUser(null);
     }
-  };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,15 +57,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, []);
 
-  const signIn: Ctx["signIn"] = async (username, password) => {
+  const signIn: Ctx["signIn"] = useCallback(async (username, password) => {
     const r = await api().auth.login(username, password);
     if (r.ok && r.user) setUser(r.user);
     return { error: r.ok ? null : (r.error ?? "Login failed") };
-  };
+  }, []);
 
-  const signOut = async () => { await api().auth.logout(); setUser(null); };
+  const signOut = useCallback(async () => { await api().auth.logout(); setUser(null); }, []);
+  const value = useMemo(() => ({ user, loading, signIn, signOut, refresh }), [user, loading, signIn, signOut, refresh]);
 
-  return <C.Provider value={{ user, loading, signIn, signOut, refresh }}>{children}</C.Provider>;
+  return <C.Provider value={value}>{children}</C.Provider>;
 }
 
 export function useAuth() {

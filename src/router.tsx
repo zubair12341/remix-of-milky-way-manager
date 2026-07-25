@@ -20,7 +20,11 @@ export const getRouter = (options: GetRouterOptions = {}) => {
   const router = createRouter({
     routeTree,
     context: { queryClient },
-    scrollRestoration: true,
+    // TanStack's scroll restoration is safe for the web history used by the
+    // SSR app, but it can spin under Electron's file:// + hash-history route
+    // model. Disable it only when a custom history is supplied by the desktop
+    // renderer; the web/Cloudflare path remains unchanged.
+    scrollRestoration: !options.history,
     defaultPreloadStaleTime: 0,
     ...(options.history ? { history: options.history } : {}),
   });
