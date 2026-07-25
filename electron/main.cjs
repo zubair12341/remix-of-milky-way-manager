@@ -486,7 +486,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1280, height: 800, minWidth: 1024, minHeight: 700,
     autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false },
+    webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false, spellcheck: false },
   });
 
   win.webContents.on("did-fail-load", (_e, code, desc, url) => {
