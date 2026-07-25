@@ -494,6 +494,14 @@ function createWindow() {
     if (code === -3) return;
     showLoadError(win, code, desc, url);
   });
+  // Pipe renderer console + errors to the main process stdout so packaged-app
+  // issues that appear only inside the Chromium renderer are visible in logs.
+  win.webContents.on("console-message", (_e, level, message, line, source) => {
+    console.log(`[renderer:${level}] ${source}:${line} ${message}`);
+  });
+  win.webContents.on("render-process-gone", (_e, details) => {
+    console.error("[renderer] gone:", details);
+  });
 
   const devUrl = process.env.ELECTRON_DEV_URL;
   if (!app.isPackaged && devUrl) {
