@@ -14,15 +14,17 @@ type Ctx = {
 const C = createContext<Ctx | null>(null);
 
 function withFallback<T>(promise: Promise<T>, fallback: T, label: string) {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => {
-      setTimeout(() => {
-        console.error(`${label} timed out`);
-        resolve(fallback);
-      }, 4000);
-    }),
-  ]);
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.error(`${label} timed out`);
+      resolve(fallback);
+    }, 4000);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
