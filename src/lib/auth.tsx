@@ -13,13 +13,25 @@ type Ctx = {
 
 const C = createContext<Ctx | null>(null);
 
+function withFallback<T>(promise: Promise<T>, fallback: T, label: string) {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => {
+      setTimeout(() => {
+        console.error(`${label} timed out`);
+        resolve(fallback);
+      }, 4000);
+    }),
+  ]);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const refresh = async () => {
     try {
-      const s = await api().auth.session();
+      const s = await withFallback(api().auth.session(), null, "Auth session check");
       setUser(s);
     } catch (error) {
       console.error("Auth session check failed", error);
