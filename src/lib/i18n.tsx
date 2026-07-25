@@ -167,7 +167,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
   }, [lang]);
   const setLang = useCallback((l: Lang) => { setLangState(l); if (typeof window !== "undefined") localStorage.setItem("lang", l); }, []);
   const t = useCallback((k: TKey) => (dict[lang] as any)[k] ?? (dict.en as any)[k] ?? k, [lang]);
-  const dir = lang === "ur" ? "rtl" : "ltr";
+  const dir: "ltr" | "rtl" = lang === "ur" ? "rtl" : "ltr";
   const value = useMemo(() => ({ lang, setLang, t, dir }), [lang, setLang, t, dir]);
   return <LangCtx.Provider value={value}>{children}</LangCtx.Provider>;
 }
