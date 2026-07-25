@@ -22,12 +22,14 @@ function LoginPage() {
   const [logo, setLogo] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // navigate() intentionally excluded from deps — see _authenticated/route.tsx.
   useEffect(() => {
     api().setup.status().then(st => { if (!st.complete) navigate({ to: "/setup", replace: true }); });
     api().settings.getAll().then(s => { setShopName(s.shop_name || "Milk Shop"); setLogo(s.logo_data_url || ""); });
-  }, [navigate]);
+     
+  }, []);
 
-  useEffect(() => { if (!loading && user) navigate({ to: "/dashboard", replace: true }); }, [user, loading, navigate]);
+  useEffect(() => { if (!loading && user) navigate({ to: "/dashboard", replace: true }); }, [user, loading]);
 
 
   const onSubmit = async (e: React.FormEvent) => {

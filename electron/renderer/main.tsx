@@ -13,16 +13,19 @@
 // reading/writing the route from `location.hash`, which is filesystem-safe.
 // The web build's history is left untouched.
 import "@/styles.css";
-import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider, createHashHistory } from "@tanstack/react-router";
 import { getRouter } from "@/router";
 
+console.log("[electron-renderer] bootstrap start");
 const router = getRouter({ history: createHashHistory() });
+console.log("[electron-renderer] router created, initial location:", router.state.location.href);
 const container = document.getElementById("root");
 if (!container) throw new Error("Renderer root element missing");
-createRoot(container).render(
-  <StrictMode>
-    <RouterProvider router={router} />
-  </StrictMode>,
-);
+window.addEventListener("error", (e) => console.error("[electron-renderer] window error:", e.message, e.error?.stack));
+window.addEventListener("unhandledrejection", (e) => console.error("[electron-renderer] unhandled rejection:", String(e.reason)));
+// StrictMode intentionally omitted for the Electron build: its double-render
+// interacts badly with TanStack Router redirects under hash history and
+// causes a render loop in production.
+createRoot(container).render(<RouterProvider router={router} />);
+console.log("[electron-renderer] render() called");
