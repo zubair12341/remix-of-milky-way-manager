@@ -12,6 +12,23 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({ ssr: false, component: LoginPage });
 
+function withFallback<T>(promise: Promise<T>, fallback: T, label: string, ms = 2500) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.error(`${label} timed out`);
+      resolve(fallback);
+    }, ms);
+  });
+
+  return Promise.race([promise, timeout]).catch((error) => {
+    console.error(`${label} failed`, error);
+    return fallback;
+  }).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
 function LoginPage() {
   const { signIn, user, loading } = useAuth();
   const { t, lang, setLang, dir } = useLang();
@@ -24,9 +41,14 @@ function LoginPage() {
 
   // navigate() intentionally excluded from deps — see _authenticated/route.tsx.
   useEffect(() => {
-    api().setup.status().then(st => { if (!st.complete) navigate({ to: "/setup", replace: true }); });
-    api().settings.getAll().then(s => { setShopName(s.shop_name || "Milk Shop"); setLogo(s.logo_data_url || ""); });
-     
+    let cancelled = false;
+    void withFallback(api().setup.status(), { complete: false }, "Auth setup status check").then((st) => {
+      if (!cancelled && !st.complete) navigate({ to: "/setup", replace: true });
+    });
+    void withFallback(api().settings.getAll(), {}, "Auth settings load", 1500).then((s) => {
+      if (!cancelled) { setShopName(s.shop_name || "Milk Shop"); setLogo(s.logo_data_url || ""); }
+    });
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => { if (!loading && user) navigate({ to: "/dashboard", replace: true }); }, [user, loading]);

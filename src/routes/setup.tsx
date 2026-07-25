@@ -10,6 +10,23 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/setup")({ ssr: false, component: SetupWizard });
 
+function withFallback<T>(promise: Promise<T>, fallback: T, label: string, ms = 2500) {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.error(`${label} timed out`);
+      resolve(fallback);
+    }, ms);
+  });
+
+  return Promise.race([promise, timeout]).catch((error) => {
+    console.error(`${label} failed`, error);
+    return fallback;
+  }).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
 function SetupWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -24,12 +41,14 @@ function SetupWizard() {
 
   // navigate() intentionally excluded from deps — see _authenticated/route.tsx.
   useEffect(() => {
-    (async () => {
-      const st = await api().setup.status();
-      if (st.complete) navigate({ to: "/auth", replace: true });
-      try { const list = await api().settings.getPrinters(); setPrinters(list); } catch {}
-    })();
-     
+    let cancelled = false;
+    void withFallback(api().setup.status(), { complete: false }, "Setup status check").then((st) => {
+      if (!cancelled && st.complete) navigate({ to: "/auth", replace: true });
+    });
+    void withFallback(api().settings.getPrinters(), [], "Printer discovery", 1500).then((list) => {
+      if (!cancelled) setPrinters(list);
+    });
+    return () => { cancelled = true; };
   }, []);
 
   const onLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
