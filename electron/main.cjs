@@ -471,16 +471,44 @@ ipcMain.handle("sl:totals", (_e, { from, to } = {}) => {
 });
 
 // ---- Window ----
+function showLoadError(win, code, desc, url) {
+  const msg = `Renderer failed to load.\nCode: ${code}\nReason: ${desc}\nURL: ${url}`;
+  console.error(msg);
+  const html = `<!doctype html><html><body style="font:14px system-ui;padding:24px;color:#111">
+    <h2 style="color:#b91c1c;margin:0 0 12px">Renderer failed to load</h2>
+    <pre style="background:#f3f4f6;padding:12px;border-radius:6px;white-space:pre-wrap">${msg.replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c]))}</pre>
+    <p>The packaged <code>dist/index.html</code> was not found or failed to load. Reinstall the application; if the problem persists this is a packaging regression.</p>
+  </body></html>`;
+  win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280, height: 800, minWidth: 1024, minHeight: 700,
     autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), contextIsolation: true, nodeIntegration: false },
   });
-  const indexPath = path.join(__dirname, "..", "dist", "index.html");
-  if (fs.existsSync(indexPath)) win.loadFile(indexPath);
-  else win.loadURL("http://localhost:8080");
+
+  win.webContents.on("did-fail-load", (_e, code, desc, url) => {
+    // -3 = user/HMR aborted, ignore
+    if (code === -3) return;
+    showLoadError(win, code, desc, url);
+  });
+
+  const devUrl = process.env.ELECTRON_DEV_URL;
+  if (!app.isPackaged && devUrl) {
+    win.loadURL(devUrl);
+    win.webContents.openDevTools({ mode: "detach" });
+  } else {
+    const indexPath = path.join(__dirname, "..", "dist-electron", "index.html");
+    if (!fs.existsSync(indexPath)) {
+      showLoadError(win, "ENOENT", "dist-electron/index.html missing (run `npm run build:electron` before packaging)", indexPath);
+    } else {
+      win.loadFile(indexPath);
+    }
+  }
 }
 app.whenReady().then(createWindow);
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
 app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+
