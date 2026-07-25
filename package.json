@@ -48,7 +48,12 @@
     },
     "win": {
       "target": [
-        { "target": "nsis", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "artifactName": "MilkShopManager-Setup-${version}.${ext}"
     },
@@ -62,11 +67,17 @@
       "runAfterFinish": true
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.business"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
+      "target": [
+        "AppImage",
+        "deb"
+      ],
       "category": "Office"
     }
   },
@@ -167,5 +178,4 @@
     "@tailwindcss/oxide-linux-arm64-gnu": "4.2.4",
     "@tailwindcss/oxide-linux-arm64-musl": "4.2.4"
   }
-
 }
