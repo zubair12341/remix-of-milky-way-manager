@@ -5,13 +5,20 @@
 // The only difference vs. the web build is that we mount via RouterProvider
 // instead of TanStack Start's SSR shellComponent — no pages, hooks, contexts,
 // stores, or business logic are duplicated for Electron.
+//
+// Under file:// (packaged Electron), `window.location.pathname` resolves to
+// the on-disk asar path (e.g. /.../app.asar/dist-electron/index.html), not
+// "/". Browser history therefore never matches any app route and every
+// screen renders the root notFoundComponent. Hash history sidesteps this by
+// reading/writing the route from `location.hash`, which is filesystem-safe.
+// The web build's history is left untouched.
 import "@/styles.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { RouterProvider } from "@tanstack/react-router";
+import { RouterProvider, createHashHistory } from "@tanstack/react-router";
 import { getRouter } from "@/router";
 
-const router = getRouter();
+const router = getRouter({ history: createHashHistory() });
 const container = document.getElementById("root");
 if (!container) throw new Error("Renderer root element missing");
 createRoot(container).render(
