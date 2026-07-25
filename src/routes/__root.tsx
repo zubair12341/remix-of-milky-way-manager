@@ -61,9 +61,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" },
+      // Google Fonts are only wired for the web/SSR build. In the Electron
+      // desktop build (packaged, offline-first) we intentionally skip them so
+      // the app has zero runtime network dependencies; system fonts fall back.
+      ...(typeof window !== "undefined" && (window as unknown as { api?: { isElectron?: boolean } }).api?.isElectron
+        ? []
+        : [
+            { rel: "preconnect", href: "https://fonts.googleapis.com" },
+            { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+            { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" },
+          ]),
     ],
   }),
   shellComponent: RootShell,
