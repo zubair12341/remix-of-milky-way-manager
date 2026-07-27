@@ -59,8 +59,11 @@ export async function createBusiness(name: string) {
   if (!uid) throw new Error("Not signed in");
   const { data, error } = await supabase.from("businesses").insert({ name, owner_user_id: uid }).select("id,name").single();
   if (error) throw error;
-  // Auto-add as owner member (in case a trigger doesn't handle it)
-  await supabase.from("business_members").insert({ business_id: data.id, user_id: uid, role: "owner" as any }).select().maybeSingle();
+  // Auto-add as owner member. Do NOT chain .select() here — RETURNING would
+  // force the SELECT policy to pass on the not-yet-visible row and PostgREST
+  // reports that as a 42501 "new row violates row-level security policy".
+  const { error: memErr } = await supabase.from("business_members").insert({ business_id: data.id, user_id: uid, role: "owner" as any });
+  if (memErr && !String(memErr.message ?? "").toLowerCase().includes("duplicate")) throw memErr;
   return data;
 }
 

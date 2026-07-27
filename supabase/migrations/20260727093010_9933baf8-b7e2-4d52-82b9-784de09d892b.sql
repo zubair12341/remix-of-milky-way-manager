@@ -1,0 +1,1 @@
+CREATE POLICY "owner reads own business" ON public.businesses FOR SELECT TO authenticated USING (owner_user_id = auth.uid());
