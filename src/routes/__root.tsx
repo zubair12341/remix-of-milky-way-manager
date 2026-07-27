@@ -4,9 +4,8 @@ import {
   createRootRouteWithContext,
   useRouter,
   HeadContent,
-  Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -61,32 +60,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      // Google Fonts are only wired for the web/SSR build. In the Electron
-      // desktop build (packaged, offline-first) we intentionally skip them so
-      // the app has zero runtime network dependencies; system fonts fall back.
-      ...(typeof window !== "undefined" && (window as unknown as { api?: { isElectron?: boolean } }).api?.isElectron
-        ? []
-        : [
-            { rel: "preconnect", href: "https://fonts.googleapis.com" },
-            { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" as const },
-            { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Naskh+Arabic:wght@400;500;600;700&display=swap" },
-          ]),
+      { rel: "manifest", href: "/manifest.webmanifest" },
     ],
   }),
-  shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
-
-function RootShell({ children }: { children: ReactNode }) {
-  return (
-    <html lang="en">
-      <head><HeadContent /></head>
-      <body>{children}<Scripts /></body>
-    </html>
-  );
-}
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -94,6 +74,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <LangProvider>
         <AuthProvider>
+          <HeadContent />
           <Outlet />
           <Toaster position="top-center" richColors />
         </AuthProvider>

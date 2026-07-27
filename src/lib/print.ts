@@ -1,4 +1,6 @@
-// Shared print helpers. Uses Electron silent print when available, else window.print fallback.
+// Shared print helpers. Uses the browser's native print flow via a hidden
+// iframe. The browser will show its native print confirmation dialog — an
+// accepted PWA tradeoff (see plan).
 import { api } from "@/lib/db";
 
 export type PrintMeta = { shop_name: string; logo_data_url?: string; title: string; subtitle?: string };
@@ -51,15 +53,9 @@ export function escape(s: any) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]!));
 }
 
-export async function printDocument(html: string, thermal = false) {
-  const a = api();
-  if (a.isElectron && a.print?.html) {
-    // Desktop app: fully silent, straight to configured printer.
-    return a.print.html(html, thermal);
-  }
-  // Browser preview fallback: hidden iframe (no popup window). The browser
-  // will still show its native print dialog — this is a browser limitation.
-  // In the packaged Windows app this code path is never used.
+export async function printDocument(html: string, _thermal = false) {
+  // Browser-native print via a hidden iframe. Never opens a popup window.
+  // The browser's print confirmation dialog will still appear — expected.
   return new Promise<{ ok: boolean; error?: string }>((resolve) => {
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";

@@ -1,206 +1,58 @@
-# Milk Shop — Offline-First + Optional Cloud Sync (Revised Plan)
 
-This revision answers the seven open points and replaces the previous architecture doc. Nothing here is implemented yet — Phase 1 starts only after you approve this version.
+# Pivot: Electron → Offline-First PWA
 
----
+## Assumption stated up front
+The current web/Cloudflare SSR path is **replaced**, not kept alongside. There is no marketing site to preserve — the whole product is the shop app. Going forward there is **one build target**: a plain Vite + React SPA that ships as an installable PWA and is also the same bundle deployed to Lovable Cloud hosting. If you actually want to keep the SSR build as a separate marketing surface, tell me now and I'll split it into two Vite configs instead.
 
-## 1. Offline is the source of truth — forever
+## Architecture
 
-**Rule:** SQLite on the local machine is always the primary DB. The cloud is a mirror. The app must boot, log in, sell, print, and record everything with the network cable unplugged, on day 1 and on day 3000.
-
-### Offline login flow (exact)
-
-Two account types live side-by-side in the local DB:
-
-| Field | `local_users` (always exists) | `cloud_users` (only after sync is enabled) |
-|---|---|---|
-| Auth source | Local SQLite, Argon2id hash | Supabase Auth |
-| Required for daily use | Yes | No |
-| Works offline | Always | Yes, via cached token + cached password hash |
-
-Login screen logic on every launch:
-
-```
-1. Read local_users from SQLite.
-2. If username matches a local_user → verify Argon2id(password, stored_hash). Done. No network call.
-3. Else if username matches a cloud_user:
-     a. If online → call supabase.auth.signInWithPassword. On success, refresh
-        cached_password_hash + cached_jwt + refresh_token in SQLite.
-     b. If offline → verify Argon2id(password, cached_password_hash).
-        Allow login. Mark session as "offline — will re-validate on reconnect".
-4. Lockout, cloud outage, expired JWT, revoked refresh token → still allow
-   offline login via cached hash. Sync stays paused; UI shows a yellow pill
-   "Working offline — cloud sign-in failed, will retry".
+```text
+┌─────────────────────────────────────────────────────┐
+│  React UI (unchanged routes / pages / components)   │
+│      calls  →  src/lib/db.ts  (abstraction kept)    │
+└─────────────────────────────────────────────────────┘
+                        │
+        ┌───────────────┴───────────────┐
+        ▼                               ▼
+┌───────────────┐              ┌────────────────────┐
+│  Dexie (IDB)  │◄────────────►│  Outbox table (IDB)│
+│  source of    │  every write │  {op,table,payload,│
+│  truth        │  → row + op  │   ts, status}      │
+└───────────────┘              └─────────┬──────────┘
+                                         │ drain
+                                         ▼
+                              ┌────────────────────┐
+                              │  Sync engine        │
+                              │  online + ping OK   │
+                              │  → Supabase upsert  │
+                              │  LWW by updated_at  │
+                              └────────────────────┘
 ```
 
-Owner can never be locked out by a cloud problem. The only way to lose access is to forget the local password, which is recoverable via the existing local "reset via secret question / admin override" flow.
+- **Source of truth:** Dexie / IndexedDB. Every read and write goes to Dexie first, synchronously from the UI's perspective.
+- **Outbox:** every mutation appends a row `{ id, entity, op: insert|update|delete, payload, local_ts, status: pending|syncing|error, error?, attempts }`.
+- **Sync engine:** starts on app boot; listens to `online` event AND polls a lightweight Supabase reachability ping (since `navigator.onLine` lies). While reachable, drains outbox FIFO, per-item try/catch so one bad row doesn't stall the queue. Pulls remote changes via existing `get_changes` RPC. Conflict rule: **last-write-wins by `updated_at`** — documented in code.
+- **Status UI:** small pill in the Shell header — "All changes synced" / "N pending" / "Syncing…" / "Sync error (retry)".
 
----
+## Steps (in order — Electron removal is LAST)
 
-## 2. First-install experience (no cloud account required)
+1. **New SPA build path** — add `vite.config.ts` (plain SPA) replacing the TanStack Start SSR config; keep the same `src/routes` tree via `tanstackRouter` plugin (already proven in `vite.electron.config.ts`). Real `index.html` + `src/main.tsx` mounting `<RouterProvider>` with browser history. Output: `dist/`.
+2. **PWA plumbing** — `vite-plugin-pwa` with `registerType: 'autoUpdate'`, Workbox `globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}']` to precache the full shell. Manifest: name, short_name (Milk Shop), icons 192/512 + maskable, `display: standalone`, theme/background colors from existing branding. Register SW from a guarded wrapper (skip in Lovable preview iframe).
+3. **Icons** — generate 192, 512, and 512-maskable PNGs into `public/`.
+4. **Dexie schema** — `src/lib/local-db.ts` defining tables mirroring the Supabase schema currently in `src/integrations/supabase/types.ts`: `settings`, `users` (bcrypt hashes), `cash_sales`, `udhar_customers`, `udhar_entries`, `monthly_clients`, `monthly_deliveries`, `delivery_pauses`, `monthly_payments`, `suppliers`, `purchases`, `supplier_payments`, `purchase_categories`, plus `outbox` and `sync_meta`.
+5. **Rewrite `src/lib/db.ts`** — same public API surface the routes/pages already call (`api().cash.add`, `api().udhar.customers`, etc.), reimplemented against Dexie. Every mutating call also appends an outbox row. Every route that currently imports it keeps working with no change to call sites.
+6. **Local auth** — `bcryptjs` (pure JS, no native binaries) checking against the local `users` table; setup flow seeds the first owner user in Dexie. Works with zero network.
+7. **Sync engine** — `src/lib/sync-engine.ts`: online detector (event + 30s reachability ping to Supabase REST), outbox drainer, remote puller using existing `get_changes` / `apply_changes` RPCs already in the DB (`business_id` scoped). Exposes a `useSyncStatus()` hook.
+8. **Sync status pill** — added to `src/components/layout/Shell.tsx` header.
+9. **Printing** — replace `window.api.print.*` calls in `src/lib/print.ts` with `window.print()` behind a print-only CSS block in `src/styles.css` (`@media print` reveals the receipt, hides the app chrome). Accepted tradeoff: browser print confirmation dialog.
+10. **Verification** — build, serve, install in Chromium, DevTools → Offline, log in, create a cash sale + udhar customer + supplier, reload while still offline, re-enable network, confirm rows appear in Supabase via `supabase--read_query`. Report exactly what I verified vs. what I couldn't in this sandbox.
+11. **Electron teardown (only after step 10 passes)** — delete `electron/`, `vite.electron.config.ts`, `dist-electron/`; remove `electron`, `electron-builder`, `better-sqlite3`, `@electron/rebuild`, `@electron/packager`, related scripts and the `build` block from `package.json`; update `USAGE.md` and `DESKTOP.md` to describe PWA install instead.
 
-First launch wizard:
+## What I will NOT do
+- No duplicated pages/hooks/stores for a PWA vs. web fork.
+- No relying on Workbox response caching as the offline data layer.
+- No silent sync failures — every error is surfaced in the status pill and stays in the outbox for retry.
+- No touching the abandoned Electron folder until the PWA replacement is proven end-to-end in the same session.
 
-1. **Shop details** — name, address, phone, logo, currency, language.
-2. **Create local administrator** — username + password (Argon2id, stored in `local_users`, role `owner`). This account works forever, offline.
-3. **Cloud sync?** Two buttons:
-   - **"Not now"** (default, recommended for first-time users) → app opens, fully usable. A persistent "Enable cloud backup" entry stays in Settings.
-   - **"Set up cloud sync"** → opens the cloud onboarding (sign up / sign in to Supabase, create or join a business). Can be done weeks or months later — see §7.
-
-No cloud round-trip is required to finish setup. Internet can be off during install.
-
----
-
-## 3. Multi-branch readiness
-
-Yes — the schema is designed for it from day 1, without forcing branches on single-shop users.
-
-Every business-scoped table gets **both** `business_id` and `branch_id` from Phase 1. A single-shop install simply has one auto-created branch (`branch_id = default_branch_uuid`), invisible in the UI.
-
-```
-businesses (id, name, ...)
-branches   (id, business_id, name, address, is_default)  -- 1 row on fresh install
-business_members (user_id, business_id, branch_id NULL=all-branches, role)
-```
-
-All synced rows carry `business_id + branch_id`. RLS policies filter by both. When the user later turns on multi-branch in Settings:
-
-- A "Branches" management screen appears.
-- A branch switcher appears in the top bar.
-- Reports gain a branch filter and "All branches" rollup.
-- Inter-branch stock transfers become a new table (`stock_transfers`) — additive, no migration of existing data.
-
-No table redesign, no UUID re-issuance, no data backfill needed later. The only cost today is one extra UUID column per table.
-
----
-
-## 4. Supplier ledger (added to scope)
-
-Promoted from "purchases module" to a first-class ledger, symmetric to the customer udhar ledger.
-
-### Tables (all sync-enabled)
-
-| Table | Purpose |
-|---|---|
-| `suppliers` | name, mobile, address, opening_balance, notes |
-| `purchase_categories` | item vs expense (already exists, kept) |
-| `purchases` | supplier_id (nullable for cash expenses), category_id, date, qty, unit, rate, amount, payment_mode (cash/credit), invoice_no, notes |
-| `supplier_payments` | supplier_id, date, amount, mode (cash/bank/upi), reference_no, notes |
-| `supplier_ledger_entries` *(view, not a table)* | unified credit/debit feed per supplier |
-
-### Computed balances
-
-`supplier_outstanding = SUM(purchases.amount WHERE payment_mode='credit') − SUM(supplier_payments.amount) + opening_balance`
-
-Computed on read, never stored — same append-only safety as customer udhar.
-
-### Screens
-
-- `/suppliers` — list + total owed across all suppliers
-- `/suppliers/$id` — profile + running ledger (date, particulars, debit, credit, balance)
-- `/suppliers/$id/payment` — record payment (thermal receipt optional)
-- `/reports/supplier-ledger` — per-supplier or all-suppliers, date range, A4 + thermal print
-- `/reports/supplier-outstanding` — aging summary (0–30, 31–60, 60+ days)
-
-### Sync classification
-
-- `suppliers`, `purchase_categories` → **LWW** (master data)
-- `purchases`, `supplier_payments` → **append-only ledger** (no conflicts possible across devices)
-
----
-
-## 5. Mobile/Android reusability
-
-Yes — the sync layer is designed as a transport-agnostic contract, not as Electron IPC.
-
-### Shared contract (will live in `packages/sync-protocol` once extracted)
-
-Two Supabase RPCs do all the work; any client that can speak HTTPS + JSON can use them:
-
-```
-POST rpc/apply_changes  { device_id, business_id, changes: [...] }
-GET  rpc/get_changes    ?business_id&last_pulled_at&limit
-```
-
-- Auth: standard Supabase JWT (`Authorization: Bearer ...`) — identical on Electron and Android.
-- Payload: plain JSON, no Node/Electron types.
-- Storage on device: SQLite (better-sqlite3 on Electron, `androidx.sqlite` / Room or `op-sqlite` on Android/React Native).
-- Same schema, same UUIDs, same outbox table, same conflict rules.
-
-The Android app reuses: schema DDL, RPC contracts, RLS policies, conflict rules, auth flow. It reimplements only the SQLite driver and UI. No server changes when mobile ships.
-
----
-
-## 6. Linking existing local data to a cloud business (deferred onboarding)
-
-This is the migration that runs the first time the user clicks **Settings → Enable cloud sync** on a shop that has been running offline for weeks or months.
-
-### Step-by-step
-
-1. **Sign in / sign up** to Supabase (email+password or Google).
-2. **Create a new business** *or* **join existing** with an invite code.
-   - The cloud `business_id` is written to a new local row in `businesses`.
-3. **Assign UUIDs.** Every existing local row already has a UUID (added in Phase 1), so this step is free. The local `legacy_id` (old integer PK) is kept for FK rewiring and debugging.
-4. **Stamp ownership.** A single transaction sets `business_id = <new-uuid>` and `branch_id = <default-branch-uuid>` on every business-scoped row.
-5. **Link accounts.** The local administrator is linked to the cloud user: `local_users.cloud_user_id = auth.uid()`. Future logins on this device can use either credential.
-6. **Seed outbox.** Every existing row is enqueued into `sync_outbox` with op=`insert`. Push runs in the background with a progress bar ("Uploading 1,240 / 8,917 records…"). The app stays fully usable during the upload.
-7. **Pull cursor.** `sync_cursors.last_pulled_at = now()` so we don't re-download what we just pushed.
-8. **Snapshot backup.** Before steps 4–6 run, the app writes a timestamped copy of the SQLite file to `backups/pre-cloud-link-<timestamp>.db`. One-click restore if anything looks wrong.
-
-### Guarantees
-
-- No data loss: append-only ledgers + pre-link snapshot.
-- No duplicates: UUIDs are stable; re-running the link is a no-op.
-- No downtime: backfill runs in the background.
-- Reversible within the snapshot window: restore the snapshot, delete `businesses` row, you're back to pure offline.
-
----
-
-## 7. What changes vs the previous plan
-
-| Area | Before | Now |
-|---|---|---|
-| First install | Implicitly assumed cloud sign-up | Local admin only; cloud is opt-in |
-| Login | Cloud-first with offline fallback | **Local-first always**; cloud is a parallel account type |
-| Branches | Not addressed | `branch_id` on every synced table from Phase 1 |
-| Suppliers | Purchases module only | Full ledger: suppliers, purchases, payments, outstanding, aging report |
-| Mobile | Mentioned as possible | Explicit shared RPC contract, schema, and auth flow |
-| Cloud onboarding | Assumed at install time | Deferred onboarding flow with snapshot + background backfill |
-
----
-
-## 8. Revised phases
-
-- **Phase 1 — Local foundation (no cloud yet)**
-  - Add `uuid`, `business_id`, `branch_id`, `created_at`, `updated_at`, `deleted_at`, `sync_status`, `sync_version`, `client_id` columns to every table.
-  - New local tables: `local_users`, `businesses` (1 row), `branches` (1 row), `sync_outbox`, `sync_cursors`, `devices`.
-  - Wrap every write in `src/lib/db.ts` to also enqueue an outbox row.
-  - **First-install wizard** with local-admin creation, no cloud step.
-  - Supplier ledger screens + tables.
-  - Ship. App still works 100% offline; outbox just accumulates harmlessly.
-
-- **Phase 2 — Cloud schema & opt-in onboarding**
-  - Supabase: `businesses`, `business_members`, `branches`, and mirrors of every synced table with RLS by `business_id`.
-  - `apply_changes` + `get_changes` RPCs.
-  - Settings → "Enable cloud sync" wizard (sign-up/sign-in, create/join business, snapshot, backfill).
-  - Cloud users cached locally for offline login.
-
-- **Phase 3 — Background sync worker**
-  - Push/pull loop in Electron main, exponential backoff, status pill, `/sync` dashboard, optional Realtime.
-
-- **Phase 4 — Hardening & mobile prep**
-  - Device management, weekly cloud dump, nightly local backups, restore flow.
-  - Extract `packages/sync-protocol` (schema + RPC types + conflict rules) so the future Android app consumes the same contract.
-
----
-
-## 9. Risks (updated)
-
-- **Long-deferred backfill.** A shop with 2 years of offline data may push 100k+ rows. Mitigation: chunked push (500 rows/batch), progress UI, runs in background, fully resumable from the outbox.
-- **Local-admin password loss.** Mitigation: existing reset flow + optional security question set during first-install wizard.
-- **Branch toggle later.** Mitigation: `branch_id` already present, default branch already created — flipping the toggle just reveals UI.
-- All previously listed risks (clock skew, money-safety, outbox growth, Supabase outage, schema drift) still apply with the same mitigations.
-
----
-
-Approve this revision and I'll start Phase 1: schema columns, local users, first-install wizard, and supplier ledger — all still 100% offline, no cloud code yet.
+## Open question before I start
+The Supabase `apply_changes` RPC requires a `business_id` and membership. Offline-first login uses local users, but sync needs a Supabase session. Plan: on first online sync attempt, require the shop owner to sign into Lovable Cloud once (existing `/cloud-signin` route) to pair the device with a business; after that the session token is stored and reused. Offline login continues to work with local credentials only — sync just pauses until an online Cloud session is re-established. Confirm this is acceptable, or say if you want a different pairing model.
