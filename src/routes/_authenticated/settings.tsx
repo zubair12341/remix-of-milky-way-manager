@@ -159,7 +159,7 @@ function Settings() {
         <div className="flex items-center gap-2"><Database className="w-5 h-5 text-primary" /><h2 className="text-xl font-bold">{t("dataManagement")}</h2></div>
         {!isElectron() && <p className="text-xs text-warning-foreground bg-warning/20 border border-warning/30 rounded p-2">{t("desktopOnly")}</p>}
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={async () => { const r = await api().data.backup(); if (r.ok) toast.success("Saved: " + r.path); }}>{t("backupDb")}</Button>
+          <Button variant="outline" onClick={async () => { const r = await api().data.backup(); if (r.ok) toast.success("Backup downloaded"); }}>{t("backupDb")}</Button>
           <Button variant="outline" onClick={async () => { const r = await api().data.restore(); if (r.ok) toast.success("Restored. Restarting…"); }}>{t("restoreDb")}</Button>
         </div>
       </Card>
