@@ -4,24 +4,20 @@ import { Milk, LogOut, Globe, User as UserIcon } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useLang } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
-import { isElectron } from "@/lib/db";
+import { SyncStatusPill } from "@/components/SyncStatusPill";
 
 export function Shell({ children }: { children: ReactNode }) {
   const { user, signOut } = useAuth();
   const { t, lang, setLang, dir } = useLang();
   return (
-    <div className="min-h-screen flex flex-col bg-background" dir={dir}>
+    <div className="min-h-screen flex flex-col bg-background app-chrome" dir={dir}>
       <header className="h-16 border-b bg-card flex items-center px-4 md:px-6 gap-3">
         <Link to="/dashboard" className="flex items-center gap-2 font-black text-lg">
           <span className="w-9 h-9 grid place-items-center rounded-lg bg-primary text-primary-foreground"><Milk className="w-5 h-5" /></span>
           <span className="hidden sm:inline">{t("appName")}</span>
         </Link>
         <div className="flex-1" />
-        {!isElectron() && (
-          <span className="hidden md:inline text-xs px-2 py-1 rounded bg-warning/20 text-warning-foreground border border-warning/30">
-            Browser preview — install desktop build for full features
-          </span>
-        )}
+        <SyncStatusPill />
         <div className="flex items-center gap-2 text-sm font-semibold">
           <UserIcon className="w-4 h-4" /> {user?.username}
         </div>
