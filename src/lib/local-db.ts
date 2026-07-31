@@ -99,6 +99,12 @@ export class MilkShopDB extends Dexie {
       outbox: "++id, created_at, table",
       sync_meta: "key",
     });
+    // v2 — Desi Ghee inventory module (local-only, not part of the cloud
+    // apply_changes whitelist yet).
+    this.version(2).stores({
+      ghee_purchases: "++id, sync_uuid, entry_date, created_at",
+      ghee_sales: "++id, sync_uuid, entry_date, created_at",
+    });
   }
 }
 
