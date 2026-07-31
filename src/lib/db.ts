@@ -583,15 +583,85 @@ function buildApi() {
       };
     })(),
 
+    ghee: {
+      async addPurchase(i: { qty_kg: number; entry_date?: string; note?: string }) {
+        const qty = Number(i.qty_kg);
+        if (!qty || qty <= 0) throw new Error("Enter a valid quantity in KG");
+        const row = { sync_uuid: uuid(), entry_date: i.entry_date || today(), qty_kg: qty, note: i.note ?? null, created_at: nowIso() };
+        const id = await d.ghee_purchases.add(row);
+        return { ...row, id };
+      },
+      async addSale(i: { qty_kg: number; amount: number; mode?: "amount" | "weight"; entry_date?: string; note?: string }) {
+        const qty = Number(i.qty_kg), amount = Number(i.amount);
+        if (!qty || qty <= 0) throw new Error("Enter a valid quantity in KG");
+        if (!amount || amount <= 0) throw new Error("Enter a valid amount");
+        const st = await this.stock();
+        if (qty > st.remaining_kg + 1e-9) throw new Error(`Only ${st.remaining_kg.toFixed(3)} KG in stock`);
+        const row = { sync_uuid: uuid(), entry_date: i.entry_date || today(), qty_kg: qty, amount, mode: (i.mode || "weight") as "amount" | "weight", note: i.note ?? null, created_at: nowIso() };
+        const id = await d.ghee_sales.add(row);
+        return { ...row, id };
+      },
+      async stock() {
+        const [ps, ss] = await Promise.all([d.ghee_purchases.toArray(), d.ghee_sales.toArray()]);
+        const purchased_kg = ps.reduce((a, x) => a + x.qty_kg, 0);
+        const sold_kg = ss.reduce((a, x) => a + x.qty_kg, 0);
+        const sales_amount = ss.reduce((a, x) => a + x.amount, 0);
+        return { purchased_kg, sold_kg, remaining_kg: purchased_kg - sold_kg, sales_amount };
+      },
+      async purchases(limit = 200) {
+        const rows = await d.ghee_purchases.toArray();
+        return rows.sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
+      },
+      async sales(limit = 200) {
+        const rows = await d.ghee_sales.toArray();
+        return rows.sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
+      },
+      async deletePurchase(id: number) { await d.ghee_purchases.delete(id); return { ok: true }; },
+      async deleteSale(id: number) { await d.ghee_sales.delete(id); return { ok: true }; },
+      async report(args: { from?: string; to?: string } = {}) {
+        const from = args.from || "0000-01-01", to = args.to || "9999-12-31";
+        const [ps, ss] = await Promise.all([d.ghee_purchases.toArray(), d.ghee_sales.toArray()]);
+        const pIn = ps.filter(x => x.entry_date >= from && x.entry_date <= to);
+        const sIn = ss.filter(x => x.entry_date >= from && x.entry_date <= to);
+        const byDayMap = new Map<string, { day: string; qty_kg: number; amount: number }>();
+        for (const s of sIn) {
+          const cur = byDayMap.get(s.entry_date) || { day: s.entry_date, qty_kg: 0, amount: 0 };
+          cur.qty_kg += s.qty_kg; cur.amount += s.amount; byDayMap.set(s.entry_date, cur);
+        }
+        const purchaseDayMap = new Map<string, { day: string; qty_kg: number }>();
+        for (const p of pIn) {
+          const cur = purchaseDayMap.get(p.entry_date) || { day: p.entry_date, qty_kg: 0 };
+          cur.qty_kg += p.qty_kg; purchaseDayMap.set(p.entry_date, cur);
+        }
+        const weekKey = (iso: string) => { const dt = new Date(iso + "T00:00:00"); const day = (dt.getDay() + 6) % 7; dt.setDate(dt.getDate() - day); return dt.toISOString().slice(0, 10); };
+        const bucket = (keyFn: (iso: string) => string) => {
+          const m = new Map<string, { key: string; qty_kg: number; amount: number }>();
+          for (const s of sIn) { const k = keyFn(s.entry_date); const c = m.get(k) || { key: k, qty_kg: 0, amount: 0 }; c.qty_kg += s.qty_kg; c.amount += s.amount; m.set(k, c); }
+          return [...m.values()].sort((a, b) => b.key.localeCompare(a.key));
+        };
+        return {
+          purchased_kg: pIn.reduce((a, x) => a + x.qty_kg, 0),
+          sold_kg: sIn.reduce((a, x) => a + x.qty_kg, 0),
+          sales_amount: sIn.reduce((a, x) => a + x.amount, 0),
+          remaining_kg: ps.reduce((a, x) => a + x.qty_kg, 0) - ss.reduce((a, x) => a + x.qty_kg, 0),
+          sales_by_date: [...byDayMap.values()].sort((a, b) => b.day.localeCompare(a.day)),
+          purchases_by_date: [...purchaseDayMap.values()].sort((a, b) => b.day.localeCompare(a.day)),
+          daily: bucket(iso => iso),
+          weekly: bucket(weekKey),
+          monthly: bucket(iso => iso.slice(0, 7)),
+        };
+      },
+    },
+
     print: {
       async receipt(p: { invoice_no: number | string; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
         const html = `<!doctype html><html><head><meta charset="utf-8"><style>
           @page{size:80mm auto;margin:0}
           html,body{margin:0;padding:0}
-          body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:4mm 3mm;text-align:center}
-          .logo{max-height:14mm;max-width:60%;object-fit:contain;display:block;margin:0 auto 2mm}
+          body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:0 6mm 6mm;text-align:center}
+          .logo{max-height:28mm;max-width:90%;object-fit:contain;display:block;margin:0 auto 3mm}
           .inv{text-align:left;font-size:10pt;font-weight:700;margin-bottom:3mm}
-          .amt-box{border:2px solid #000;border-radius:2mm;padding:4mm 2mm;margin:2mm 0}
+          .amt-box{border:2px solid #000;border-radius:2mm;padding:4mm 3mm;margin:2mm 0}
           .amt{font-size:26pt;font-weight:900;letter-spacing:1px;line-height:1}
           .foot{margin-top:5mm;font-size:8pt;font-style:italic;border-top:1px dashed #000;padding-top:2mm}
         </style></head><body>
