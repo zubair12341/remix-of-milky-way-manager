@@ -145,6 +145,7 @@ const dict = {
     addCategory: "زمرہ شامل", categoryName: "زمرہ کا نام", categoryKind: "قسم",
     salesReport: "فروخت رپورٹ", purchaseReport: "خریداری رپورٹ",
     summaryReport: "خلاصہ رپورٹ", reportSummary: "رپورٹ خلاصہ",
+    desiGhee: "دیسی گھی", desiGheeReport: "دیسی گھی رپورٹ",
     miscellaneousIncome: "متفرق آمدنی", adjustments: "ایڈجسٹمنٹ",
     monthlyBillTitle: "ماہانہ بل",
   },
