@@ -26,6 +26,9 @@ export type LocalPurchaseEntry = { id?: number; entry_date: string; category_id:
 export type LocalSLSupplier = { id: string; name: string; mobile: string | null; address: string | null; opening_balance: number; notes: string | null; deleted_at: string | null; created_at: string; updated_at: string };
 export type LocalSLPurchase = { id: string; supplier_id: string; entry_date: string; invoice_no: string | null; item_name: string | null; qty: number | null; unit: string | null; rate: number | null; amount: number; payment_mode: "cash" | "credit"; notes: string | null; deleted_at: string | null; created_at: string; updated_at: string };
 export type LocalSLPayment = { id: string; supplier_id: string; entry_date: string; amount: number; mode: string; reference_no: string | null; notes: string | null; deleted_at: string | null; created_at: string; updated_at: string };
+// Desi Ghee inventory. Purchases only track KG; sales track amount + KG sold.
+export type LocalGheePurchase = { id?: number; sync_uuid: string; entry_date: string; qty_kg: number; note: string | null; created_at: string };
+export type LocalGheeSale = { id?: number; sync_uuid: string; entry_date: string; qty_kg: number; amount: number; mode: "amount" | "weight"; note: string | null; created_at: string };
 
 // Cloud table names must match the whitelist inside the Supabase
 // apply_changes RPC. Only rows targeted at these tables get pushed.
@@ -67,6 +70,8 @@ export class MilkShopDB extends Dexie {
   sl_suppliers!: Table<LocalSLSupplier, string>;
   sl_purchases!: Table<LocalSLPurchase, string>;
   sl_payments!: Table<LocalSLPayment, string>;
+  ghee_purchases!: Table<LocalGheePurchase, number>;
+  ghee_sales!: Table<LocalGheeSale, number>;
   settings!: Table<{ key: string; value: string }, string>;
   session!: Table<SessionRow, string>;
   outbox!: Table<OutboxRow, number>;
@@ -93,6 +98,12 @@ export class MilkShopDB extends Dexie {
       session: "key",
       outbox: "++id, created_at, table",
       sync_meta: "key",
+    });
+    // v2 — Desi Ghee inventory module (local-only, not part of the cloud
+    // apply_changes whitelist yet).
+    this.version(2).stores({
+      ghee_purchases: "++id, sync_uuid, entry_date, created_at",
+      ghee_sales: "++id, sync_uuid, entry_date, created_at",
     });
   }
 }

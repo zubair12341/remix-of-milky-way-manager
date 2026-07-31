@@ -20,6 +20,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPurchasesRouteImport } from './routes/_authenticated/purchases'
 import { Route as AuthenticatedMonthlyRouteImport } from './routes/_authenticated/monthly'
+import { Route as AuthenticatedGheeRouteImport } from './routes/_authenticated/ghee'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCashCounterRouteImport } from './routes/_authenticated/cash-counter'
 import { Route as AuthenticatedUdharIndexRouteImport } from './routes/_authenticated/udhar.index'
@@ -30,6 +31,7 @@ import { Route as AuthenticatedMonthlyIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedUdharCustomerIdRouteImport } from './routes/_authenticated/udhar.$customerId'
 import { Route as AuthenticatedSuppliersSupplierIdRouteImport } from './routes/_authenticated/suppliers.$supplierId'
 import { Route as AuthenticatedReportsSummaryRouteImport } from './routes/_authenticated/reports.summary'
+import { Route as AuthenticatedReportsGheeRouteImport } from './routes/_authenticated/reports.ghee'
 import { Route as AuthenticatedPurchasesSuppliersRouteImport } from './routes/_authenticated/purchases.suppliers'
 import { Route as AuthenticatedPurchasesSupplierIdRouteImport } from './routes/_authenticated/purchases.$supplierId'
 import { Route as AuthenticatedMonthlyDeliveriesRouteImport } from './routes/_authenticated/monthly.deliveries'
@@ -87,6 +89,11 @@ const AuthenticatedPurchasesRoute = AuthenticatedPurchasesRouteImport.update({
 const AuthenticatedMonthlyRoute = AuthenticatedMonthlyRouteImport.update({
   id: '/monthly',
   path: '/monthly',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGheeRoute = AuthenticatedGheeRouteImport.update({
+  id: '/ghee',
+  path: '/ghee',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -147,6 +154,12 @@ const AuthenticatedReportsSummaryRoute =
     path: '/summary',
     getParentRoute: () => AuthenticatedReportsRoute,
   } as any)
+const AuthenticatedReportsGheeRoute =
+  AuthenticatedReportsGheeRouteImport.update({
+    id: '/ghee',
+    path: '/ghee',
+    getParentRoute: () => AuthenticatedReportsRoute,
+  } as any)
 const AuthenticatedPurchasesSuppliersRoute =
   AuthenticatedPurchasesSuppliersRouteImport.update({
     id: '/suppliers',
@@ -179,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/cash-counter': typeof AuthenticatedCashCounterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/ghee': typeof AuthenticatedGheeRoute
   '/monthly': typeof AuthenticatedMonthlyRouteWithChildren
   '/purchases': typeof AuthenticatedPurchasesRouteWithChildren
   '/reports': typeof AuthenticatedReportsRouteWithChildren
@@ -189,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/monthly/deliveries': typeof AuthenticatedMonthlyDeliveriesRoute
   '/purchases/$supplierId': typeof AuthenticatedPurchasesSupplierIdRoute
   '/purchases/suppliers': typeof AuthenticatedPurchasesSuppliersRoute
+  '/reports/ghee': typeof AuthenticatedReportsGheeRoute
   '/reports/summary': typeof AuthenticatedReportsSummaryRoute
   '/suppliers/$supplierId': typeof AuthenticatedSuppliersSupplierIdRoute
   '/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
@@ -205,11 +220,13 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/cash-counter': typeof AuthenticatedCashCounterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/ghee': typeof AuthenticatedGheeRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/monthly/$clientId': typeof AuthenticatedMonthlyClientIdRoute
   '/monthly/deliveries': typeof AuthenticatedMonthlyDeliveriesRoute
   '/purchases/$supplierId': typeof AuthenticatedPurchasesSupplierIdRoute
   '/purchases/suppliers': typeof AuthenticatedPurchasesSuppliersRoute
+  '/reports/ghee': typeof AuthenticatedReportsGheeRoute
   '/reports/summary': typeof AuthenticatedReportsSummaryRoute
   '/suppliers/$supplierId': typeof AuthenticatedSuppliersSupplierIdRoute
   '/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
@@ -228,6 +245,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/_authenticated/cash-counter': typeof AuthenticatedCashCounterRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/ghee': typeof AuthenticatedGheeRoute
   '/_authenticated/monthly': typeof AuthenticatedMonthlyRouteWithChildren
   '/_authenticated/purchases': typeof AuthenticatedPurchasesRouteWithChildren
   '/_authenticated/reports': typeof AuthenticatedReportsRouteWithChildren
@@ -238,6 +256,7 @@ export interface FileRoutesById {
   '/_authenticated/monthly/deliveries': typeof AuthenticatedMonthlyDeliveriesRoute
   '/_authenticated/purchases/$supplierId': typeof AuthenticatedPurchasesSupplierIdRoute
   '/_authenticated/purchases/suppliers': typeof AuthenticatedPurchasesSuppliersRoute
+  '/_authenticated/reports/ghee': typeof AuthenticatedReportsGheeRoute
   '/_authenticated/reports/summary': typeof AuthenticatedReportsSummaryRoute
   '/_authenticated/suppliers/$supplierId': typeof AuthenticatedSuppliersSupplierIdRoute
   '/_authenticated/udhar/$customerId': typeof AuthenticatedUdharCustomerIdRoute
@@ -256,6 +275,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/cash-counter'
     | '/dashboard'
+    | '/ghee'
     | '/monthly'
     | '/purchases'
     | '/reports'
@@ -266,6 +286,7 @@ export interface FileRouteTypes {
     | '/monthly/deliveries'
     | '/purchases/$supplierId'
     | '/purchases/suppliers'
+    | '/reports/ghee'
     | '/reports/summary'
     | '/suppliers/$supplierId'
     | '/udhar/$customerId'
@@ -282,11 +303,13 @@ export interface FileRouteTypes {
     | '/setup'
     | '/cash-counter'
     | '/dashboard'
+    | '/ghee'
     | '/settings'
     | '/monthly/$clientId'
     | '/monthly/deliveries'
     | '/purchases/$supplierId'
     | '/purchases/suppliers'
+    | '/reports/ghee'
     | '/reports/summary'
     | '/suppliers/$supplierId'
     | '/udhar/$customerId'
@@ -304,6 +327,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/_authenticated/cash-counter'
     | '/_authenticated/dashboard'
+    | '/_authenticated/ghee'
     | '/_authenticated/monthly'
     | '/_authenticated/purchases'
     | '/_authenticated/reports'
@@ -314,6 +338,7 @@ export interface FileRouteTypes {
     | '/_authenticated/monthly/deliveries'
     | '/_authenticated/purchases/$supplierId'
     | '/_authenticated/purchases/suppliers'
+    | '/_authenticated/reports/ghee'
     | '/_authenticated/reports/summary'
     | '/_authenticated/suppliers/$supplierId'
     | '/_authenticated/udhar/$customerId'
@@ -411,6 +436,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMonthlyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/ghee': {
+      id: '/_authenticated/ghee'
+      path: '/ghee'
+      fullPath: '/ghee'
+      preLoaderRoute: typeof AuthenticatedGheeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -481,6 +513,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsSummaryRouteImport
       parentRoute: typeof AuthenticatedReportsRoute
     }
+    '/_authenticated/reports/ghee': {
+      id: '/_authenticated/reports/ghee'
+      path: '/ghee'
+      fullPath: '/reports/ghee'
+      preLoaderRoute: typeof AuthenticatedReportsGheeRouteImport
+      parentRoute: typeof AuthenticatedReportsRoute
+    }
     '/_authenticated/purchases/suppliers': {
       id: '/_authenticated/purchases/suppliers'
       path: '/suppliers'
@@ -547,11 +586,13 @@ const AuthenticatedPurchasesRouteWithChildren =
   )
 
 interface AuthenticatedReportsRouteChildren {
+  AuthenticatedReportsGheeRoute: typeof AuthenticatedReportsGheeRoute
   AuthenticatedReportsSummaryRoute: typeof AuthenticatedReportsSummaryRoute
   AuthenticatedReportsIndexRoute: typeof AuthenticatedReportsIndexRoute
 }
 
 const AuthenticatedReportsRouteChildren: AuthenticatedReportsRouteChildren = {
+  AuthenticatedReportsGheeRoute: AuthenticatedReportsGheeRoute,
   AuthenticatedReportsSummaryRoute: AuthenticatedReportsSummaryRoute,
   AuthenticatedReportsIndexRoute: AuthenticatedReportsIndexRoute,
 }
@@ -592,6 +633,7 @@ const AuthenticatedUdharRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCashCounterRoute: typeof AuthenticatedCashCounterRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedGheeRoute: typeof AuthenticatedGheeRoute
   AuthenticatedMonthlyRoute: typeof AuthenticatedMonthlyRouteWithChildren
   AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRouteWithChildren
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRouteWithChildren
@@ -603,6 +645,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCashCounterRoute: AuthenticatedCashCounterRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedGheeRoute: AuthenticatedGheeRoute,
   AuthenticatedMonthlyRoute: AuthenticatedMonthlyRouteWithChildren,
   AuthenticatedPurchasesRoute: AuthenticatedPurchasesRouteWithChildren,
   AuthenticatedReportsRoute: AuthenticatedReportsRouteWithChildren,
