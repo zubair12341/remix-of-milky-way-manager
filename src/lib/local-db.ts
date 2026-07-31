@@ -70,6 +70,8 @@ export class MilkShopDB extends Dexie {
   sl_suppliers!: Table<LocalSLSupplier, string>;
   sl_purchases!: Table<LocalSLPurchase, string>;
   sl_payments!: Table<LocalSLPayment, string>;
+  ghee_purchases!: Table<LocalGheePurchase, number>;
+  ghee_sales!: Table<LocalGheeSale, number>;
   settings!: Table<{ key: string; value: string }, string>;
   session!: Table<SessionRow, string>;
   outbox!: Table<OutboxRow, number>;
