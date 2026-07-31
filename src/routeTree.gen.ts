@@ -20,6 +20,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
 import { Route as AuthenticatedPurchasesRouteImport } from './routes/_authenticated/purchases'
 import { Route as AuthenticatedMonthlyRouteImport } from './routes/_authenticated/monthly'
+import { Route as AuthenticatedGheeRouteImport } from './routes/_authenticated/ghee'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCashCounterRouteImport } from './routes/_authenticated/cash-counter'
 import { Route as AuthenticatedUdharIndexRouteImport } from './routes/_authenticated/udhar.index'
@@ -87,6 +88,11 @@ const AuthenticatedPurchasesRoute = AuthenticatedPurchasesRouteImport.update({
 const AuthenticatedMonthlyRoute = AuthenticatedMonthlyRouteImport.update({
   id: '/monthly',
   path: '/monthly',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedGheeRoute = AuthenticatedGheeRouteImport.update({
+  id: '/ghee',
+  path: '/ghee',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/cash-counter': typeof AuthenticatedCashCounterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/ghee': typeof AuthenticatedGheeRoute
   '/monthly': typeof AuthenticatedMonthlyRouteWithChildren
   '/purchases': typeof AuthenticatedPurchasesRouteWithChildren
   '/reports': typeof AuthenticatedReportsRouteWithChildren
@@ -205,6 +212,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/cash-counter': typeof AuthenticatedCashCounterRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/ghee': typeof AuthenticatedGheeRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/monthly/$clientId': typeof AuthenticatedMonthlyClientIdRoute
   '/monthly/deliveries': typeof AuthenticatedMonthlyDeliveriesRoute
@@ -228,6 +236,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/_authenticated/cash-counter': typeof AuthenticatedCashCounterRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/ghee': typeof AuthenticatedGheeRoute
   '/_authenticated/monthly': typeof AuthenticatedMonthlyRouteWithChildren
   '/_authenticated/purchases': typeof AuthenticatedPurchasesRouteWithChildren
   '/_authenticated/reports': typeof AuthenticatedReportsRouteWithChildren
@@ -256,6 +265,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/cash-counter'
     | '/dashboard'
+    | '/ghee'
     | '/monthly'
     | '/purchases'
     | '/reports'
@@ -282,6 +292,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/cash-counter'
     | '/dashboard'
+    | '/ghee'
     | '/settings'
     | '/monthly/$clientId'
     | '/monthly/deliveries'
@@ -304,6 +315,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/_authenticated/cash-counter'
     | '/_authenticated/dashboard'
+    | '/_authenticated/ghee'
     | '/_authenticated/monthly'
     | '/_authenticated/purchases'
     | '/_authenticated/reports'
@@ -409,6 +421,13 @@ declare module '@tanstack/react-router' {
       path: '/monthly'
       fullPath: '/monthly'
       preLoaderRoute: typeof AuthenticatedMonthlyRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ghee': {
+      id: '/_authenticated/ghee'
+      path: '/ghee'
+      fullPath: '/ghee'
+      preLoaderRoute: typeof AuthenticatedGheeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -592,6 +611,7 @@ const AuthenticatedUdharRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCashCounterRoute: typeof AuthenticatedCashCounterRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedGheeRoute: typeof AuthenticatedGheeRoute
   AuthenticatedMonthlyRoute: typeof AuthenticatedMonthlyRouteWithChildren
   AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRouteWithChildren
   AuthenticatedReportsRoute: typeof AuthenticatedReportsRouteWithChildren
@@ -603,6 +623,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCashCounterRoute: AuthenticatedCashCounterRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedGheeRoute: AuthenticatedGheeRoute,
   AuthenticatedMonthlyRoute: AuthenticatedMonthlyRouteWithChildren,
   AuthenticatedPurchasesRoute: AuthenticatedPurchasesRouteWithChildren,
   AuthenticatedReportsRoute: AuthenticatedReportsRouteWithChildren,
