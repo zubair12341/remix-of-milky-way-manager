@@ -73,6 +73,7 @@ const dict = {
     addCategory: "Add Category", categoryName: "Category Name", categoryKind: "Type",
     salesReport: "Sales Report", purchaseReport: "Purchase Report",
     summaryReport: "Summary Report", reportSummary: "Report Summary",
+    desiGhee: "Desi Ghee", desiGheeReport: "Desi Ghee Report",
     miscellaneousIncome: "Miscellaneous Income", adjustments: "Adjustments",
     monthlyBillTitle: "Monthly Bill",
   },
