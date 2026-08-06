@@ -57,16 +57,27 @@ function GheePage() {
 
   const saveSale = async () => {
     try {
-      await api().ghee.addSale({
+      const row = await api().ghee.addSale({
         qty_kg: selectedKg,
         amount: Number(sAmount),
         mode: UNITS[unitIdx].kg ? "weight" : "amount",
         entry_date: sDate,
       });
-      toast.success(`Sold ${kg(selectedKg)} • ${fmtMoney(Number(sAmount))}`);
+      const settings = await api().settings.getAll();
+      const printRes = await api().print.gheeReceipt({
+        invoice_no: row.id!,
+        qty_kg: row.qty_kg,
+        amount: row.amount,
+        date: new Date(row.created_at).toLocaleDateString(),
+        shop_name: settings.shop_name || "Milk Shop",
+        logo_data_url: settings.logo_data_url || "",
+      });
+      if (!printRes.ok) toast.warning(`Saved. Print failed: ${printRes.error ?? ""}`);
+      else toast.success(`Sold ${kg(selectedKg)} • ${fmtMoney(Number(sAmount))}`);
       setSAmount(""); setCustomKg(""); refresh();
     } catch (e: any) { toast.error(e.message || "Failed"); }
   };
+
 
   return (
     <div className="space-y-6">
