@@ -58,11 +58,14 @@ export async function printDocument(html: string, _thermal = false) {
   // The browser's print confirmation dialog will still appear — expected.
   return new Promise<{ ok: boolean; error?: string }>((resolve) => {
     const iframe = document.createElement("iframe");
+    // Give the frame real A4 layout width — a 0x0 frame lays the document out
+    // at zero width and the printed result does not match the preview.
     iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "0";
+    iframe.style.width = "210mm";
+    iframe.style.height = "297mm";
+    iframe.style.opacity = "0";
     iframe.style.border = "0";
     document.body.appendChild(iframe);
     const doc = iframe.contentDocument!;
