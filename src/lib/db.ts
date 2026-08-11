@@ -104,6 +104,7 @@ function printViaIframe(html: string, pageWidthMm?: number): Promise<{ ok: boole
     const doc = iframe.contentDocument!;
     doc.open(); doc.write(html); doc.close();
     let finished = false;
+    let started = false;
     const done = () => { if (finished) return; finished = true; setTimeout(() => iframe.remove(), 1000); resolve({ ok: true }); };
     const run = async () => {
       try {
