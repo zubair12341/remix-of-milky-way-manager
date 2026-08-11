@@ -11,7 +11,8 @@ import { useAuth } from "@/lib/auth";
 import { BackButton } from "@/components/BackButton";
 import { Store, Lock, Printer as PrinterIcon, Database, AlertTriangle, Cloud, LogOut, RefreshCw } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { syncNow, subscribe as subscribeSync, startSync, type SyncStatus } from "@/lib/sync";
+import { syncNow, subscribe as subscribeSync, startSync, listSyncFailures, clearSyncFailures, type SyncStatus } from "@/lib/sync-engine";
+import type { SyncFailureRow } from "@/lib/local-db";
 import { cloudSession, cloudSignOut, listBusinesses, createBusiness, pairBusiness, getPairing, type CloudPairing } from "@/lib/cloud";
 
 export const Route = createFileRoute("/_authenticated/settings")({ component: Settings });
@@ -28,6 +29,7 @@ function Settings() {
   const [businesses, setBusinesses] = useState<{ id: string; name: string }[]>([]);
   const [newBiz, setNewBiz] = useState("");
   const [syncState, setSyncState] = useState<SyncStatus | null>(null);
+  const [failures, setFailures] = useState<SyncFailureRow[]>([]);
 
   const refreshCloud = async () => {
     const s = await cloudSession();
