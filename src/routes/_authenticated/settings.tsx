@@ -43,7 +43,10 @@ function Settings() {
     api().settings.getAll().then(s => setShop({ shop_name: s.shop_name || "", logo_data_url: s.logo_data_url || "", printer_name: s.printer_name || "", receipt_width: s.receipt_width || "80" }));
     api().settings.getPrinters().then(setPrinters);
     refreshCloud();
-    const unsub = subscribeSync(setSyncState);
+    const unsub = subscribeSync((s) => {
+      setSyncState(s);
+      if (s.failed) void listSyncFailures().then(setFailures);
+    });
     startSync();
     return () => { unsub(); };
   }, []);
