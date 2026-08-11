@@ -723,12 +723,12 @@ function buildApi() {
           <div class="amt-box"><div class="amt">Rs. ${Number(p.amount).toLocaleString()}</div></div>
           <div class="foot">Designed &amp; developed by Zubair Khan</div>
         </body></html>`;
-        return printViaIframe(html);
+        return printViaIframe(html, 80);
       },
       async gheeReceipt(p: { invoice_no: number | string; qty_kg: number; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
         const kgLabel = `${Number(p.qty_kg || 0).toFixed(3).replace(/\.?0+$/, "")} KG`;
         const html = `<!doctype html><html><head><meta charset="utf-8"><style>
-          @page{size:80mm auto;margin:0}
+          /* page size is injected at print time from measured content height */
           html,body{margin:0;padding:0}
           body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:0 6mm 6mm;text-align:center}
           .logo{max-height:28mm;max-width:90%;object-fit:contain;display:block;margin:0 auto 3mm}
@@ -744,7 +744,7 @@ function buildApi() {
           <div class="amt-box"><div class="amt">Rs. ${Number(p.amount).toLocaleString()}</div></div>
           <div class="foot">Designed &amp; developed by Zubair Khan</div>
         </body></html>`;
-        return printViaIframe(html);
+        return printViaIframe(html, 80);
       },
       async test() { return printViaIframe(`<!doctype html><html><body style="font-family:sans-serif;padding:20px"><h1>Test Print</h1><p>${new Date().toLocaleString()}</p></body></html>`); },
       async html(html: string) { return printViaIframe(html); },
