@@ -67,19 +67,71 @@ async function enqueue(table: CloudTable, op: "upsert" | "delete", payload: Reco
 }
 
 // ---- Print (browser-native via hidden iframe) ----
-function printViaIframe(html: string): Promise<{ ok: boolean; error?: string }> {
+// ROOT CAUSE of the "blank space above the receipt": `@page { size: 80mm auto }`
+// is INVALID CSS — the `size` descriptor takes either keywords or TWO lengths,
+// never a length plus `auto`. Chrome discards the whole declaration and falls
+// back to the driver's default page (A4/Letter, ~297mm tall), so an 80mm-wide
+// receipt gets laid out on a full-height sheet: the paper the printer feeds is
+// mostly empty, which reads as a huge margin above/below the ink.
+//
+// Fix: render the document in a correctly sized (80mm wide) offscreen iframe,
+// measure the real content height once images have decoded, then inject a
+// VALID two-length `@page { size: 80mm <measured>mm; margin: 0 }` before
+// calling print(). The paper then matches the receipt exactly.
+const PX_PER_MM = 96 / 25.4;
+
+async function waitForImages(doc: Document, timeoutMs = 1500) {
+  const imgs = Array.from(doc.images ?? []);
+  if (imgs.length === 0) return;
+  await Promise.race([
+    Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise<void>(res => {
+      img.addEventListener("load", () => res(), { once: true });
+      img.addEventListener("error", () => res(), { once: true });
+    }))),
+    new Promise<void>(res => setTimeout(res, timeoutMs)),
+  ]);
+}
+
+function printViaIframe(html: string, pageWidthMm?: number): Promise<{ ok: boolean; error?: string }> {
   return new Promise((resolve) => {
     if (typeof document === "undefined") return resolve({ ok: false, error: "No document" });
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    // Must have real layout dimensions, otherwise measurement is meaningless.
+    const w = pageWidthMm ? `${pageWidthMm}mm` : "210mm";
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText = `position:fixed;left:-10000px;top:0;width:${w};height:400mm;border:0;opacity:0;pointer-events:none`;
     document.body.appendChild(iframe);
     const doc = iframe.contentDocument!;
     doc.open(); doc.write(html); doc.close();
-    const done = () => { setTimeout(() => iframe.remove(), 800); resolve({ ok: true }); };
-    iframe.onload = () => { try { iframe.contentWindow!.focus(); iframe.contentWindow!.print(); } catch { /* ignore */ } done(); };
-    setTimeout(done, 3000);
+    let finished = false;
+    let started = false;
+    const done = () => { if (finished) return; finished = true; setTimeout(() => iframe.remove(), 1000); resolve({ ok: true }); };
+    const run = async () => {
+      if (started) return;
+      started = true;
+      try {
+        await waitForImages(doc);
+        if (pageWidthMm) {
+          // Measure the true ink height and pin the page to it.
+          const body = doc.body;
+          const contentPx = Math.max(body.scrollHeight, body.getBoundingClientRect().height);
+          const heightMm = Math.max(20, Math.ceil(contentPx / PX_PER_MM) + 2);
+          const style = doc.createElement("style");
+          style.textContent = `@page{size:${pageWidthMm}mm ${heightMm}mm;margin:0}html,body{margin:0!important}`;
+          doc.head.appendChild(style);
+        }
+        iframe.contentWindow!.focus();
+        iframe.contentWindow!.print();
+      } catch { /* ignore */ }
+      done();
+    };
+    iframe.onload = () => { void run(); };
+    // Some browsers fire load before doc.write completes; belt & braces.
+    setTimeout(() => { if (!finished) void run(); }, 600);
+    setTimeout(done, 5000);
   });
 }
+
 
 // ---- Settings helpers ----
 async function getSetting(key: string, fallback = ""): Promise<string> {
@@ -160,6 +212,11 @@ function buildApi() {
 
     cash: {
       async add(amount: number): Promise<CashTxn> {
+        // Guard the money column limit (NUMERIC(14,2) → under 1e12) at the
+        // source so an accidental huge entry can never poison the sync queue.
+        const amt = Number(amount);
+        if (!Number.isFinite(amt) || amt <= 0) throw new Error("Invalid amount");
+        if (amt >= 1e12) throw new Error("Amount is too large (maximum 999,999,999,999)");
         const nextInv = parseInt(await getSetting("invoice_counter", "1000"), 10) + 1;
         await setSetting("invoice_counter", String(nextInv));
         const sync_uuid = uuid();
@@ -656,7 +713,7 @@ function buildApi() {
     print: {
       async receipt(p: { invoice_no: number | string; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
         const html = `<!doctype html><html><head><meta charset="utf-8"><style>
-          @page{size:80mm auto;margin:0}
+          /* page size is injected at print time from measured content height */
           html,body{margin:0!important;padding:0!important}
           body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:0 3mm 3mm;text-align:center}
           .logo{max-height:16mm;max-width:55%;object-fit:contain;display:block;margin:0 auto 1mm}
@@ -671,12 +728,12 @@ function buildApi() {
           <div class="amt-box"><div class="amt">Rs. ${Number(p.amount).toLocaleString()}</div></div>
           <div class="foot">Designed &amp; developed by Zubair Khan</div>
         </body></html>`;
-        return printViaIframe(html);
+        return printViaIframe(html, 80);
       },
       async gheeReceipt(p: { invoice_no: number | string; qty_kg: number; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
         const kgLabel = `${Number(p.qty_kg || 0).toFixed(3).replace(/\.?0+$/, "")} KG`;
         const html = `<!doctype html><html><head><meta charset="utf-8"><style>
-          @page{size:80mm auto;margin:0}
+          /* page size is injected at print time from measured content height */
           html,body{margin:0;padding:0}
           body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:0 6mm 6mm;text-align:center}
           .logo{max-height:28mm;max-width:90%;object-fit:contain;display:block;margin:0 auto 3mm}
@@ -692,7 +749,7 @@ function buildApi() {
           <div class="amt-box"><div class="amt">Rs. ${Number(p.amount).toLocaleString()}</div></div>
           <div class="foot">Designed &amp; developed by Zubair Khan</div>
         </body></html>`;
-        return printViaIframe(html);
+        return printViaIframe(html, 80);
       },
       async test() { return printViaIframe(`<!doctype html><html><body style="font-family:sans-serif;padding:20px"><h1>Test Print</h1><p>${new Date().toLocaleString()}</p></body></html>`); },
       async html(html: string) { return printViaIframe(html); },
