@@ -212,6 +212,11 @@ function buildApi() {
 
     cash: {
       async add(amount: number): Promise<CashTxn> {
+        // Guard the money column limit (NUMERIC(14,2) → under 1e12) at the
+        // source so an accidental huge entry can never poison the sync queue.
+        const amt = Number(amount);
+        if (!Number.isFinite(amt) || amt <= 0) throw new Error("Invalid amount");
+        if (amt >= 1e12) throw new Error("Amount is too large (maximum 999,999,999,999)");
         const nextInv = parseInt(await getSetting("invoice_counter", "1000"), 10) + 1;
         await setSetting("invoice_counter", String(nextInv));
         const sync_uuid = uuid();
