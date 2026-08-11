@@ -713,22 +713,22 @@ function buildApi() {
     print: {
       async receipt(p: { invoice_no: number | string; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
         const html = `<!doctype html><html><head><meta charset="utf-8"><style>
-          html,body{margin:0!important;padding:0!important}
-          body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:0 3mm 3mm;text-align:center}
-          .logo{max-height:16mm;max-width:55%;object-fit:contain;display:block;margin:0 auto 1mm}
-          table.inv{width:100%;border-collapse:collapse;text-align:left;font-size:9pt;font-weight:700;margin-bottom:2mm}
-          table.inv td{padding:0}
-          table.inv td:last-child{text-align:right;font-weight:400}
+          @page{size:80mm auto;margin:0}
+          html,body{margin:0;padding:0}
+          body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:2mm 3mm;text-align:center}
+          .logo{max-height:9mm;max-width:45%;object-fit:contain;display:block;margin:0 auto 1mm}
+          .inv{display:flex;justify-content:space-between;align-items:baseline;text-align:left;font-size:9pt;font-weight:700;margin-bottom:2mm}
+          .inv span:last-child{font-weight:400}
           .amt-box{border:2px solid #000;border-radius:2mm;padding:3mm 2mm;margin:1mm 0}
           .amt{font-size:24pt;font-weight:900;letter-spacing:1px;line-height:1}
           .foot{margin-top:3mm;font-size:8pt;font-style:italic;border-top:1px dashed #000;padding-top:2mm}
         </style></head><body>
           ${p.logo_data_url ? `<img class="logo" src="${p.logo_data_url}"/>` : ""}
-          <table class="inv"><tr><td>Invoice #${p.invoice_no}</td><td>${p.date}</td></tr></table>
+          <div class="inv"><span>Invoice #${p.invoice_no}</span><span>${p.date}</span></div>
           <div class="amt-box"><div class="amt">Rs. ${Number(p.amount).toLocaleString()}</div></div>
           <div class="foot">Designed &amp; developed by Zubair Khan</div>
         </body></html>`;
-        return printViaIframe(html, 80);
+        return printViaIframe(html);
       },
       async gheeReceipt(p: { invoice_no: number | string; qty_kg: number; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
         const kgLabel = `${Number(p.qty_kg || 0).toFixed(3).replace(/\.?0+$/, "")} KG`;
