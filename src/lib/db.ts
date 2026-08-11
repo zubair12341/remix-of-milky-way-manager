@@ -659,7 +659,7 @@ function buildApi() {
           @page{size:80mm auto;margin:0}
           html,body{margin:0!important;padding:0!important}
           body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:0 3mm 3mm;text-align:center}
-          .logo{max-height:18mm;max-width:55%;object-fit:contain;display:block;margin:0 auto 1mm}
+          .logo{max-height:16mm;max-width:55%;object-fit:contain;display:block;margin:0 auto 1mm}
           .inv{display:flex;justify-content:space-between;align-items:baseline;text-align:left;font-size:9pt;font-weight:700;margin-bottom:2mm}
           .inv span:last-child{font-weight:400}
           .amt-box{border:2px solid #000;border-radius:2mm;padding:3mm 2mm;margin:1mm 0}
