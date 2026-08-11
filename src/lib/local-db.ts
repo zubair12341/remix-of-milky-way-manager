@@ -52,6 +52,17 @@ export type OutboxRow = {
   last_error: string | null;
 };
 
+// Dead-letter queue. A single malformed row (e.g. an out-of-range amount)
+// must never wedge the whole outbox: the push path moves offenders here with
+// a human-readable reason so the rest of the queue keeps draining.
+export type SyncFailureRow = {
+  id?: number;
+  table: CloudTable;
+  payload: Record<string, unknown>;
+  reason: string;
+  failed_at: string;
+};
+
 export type SyncMetaRow = { key: string; value: string };
 export type SessionRow = { key: "session"; user_id: number; username: string };
 
@@ -76,6 +87,7 @@ export class MilkShopDB extends Dexie {
   session!: Table<SessionRow, string>;
   outbox!: Table<OutboxRow, number>;
   sync_meta!: Table<SyncMetaRow, string>;
+  sync_failures!: Table<SyncFailureRow, number>;
 
   constructor() {
     super("milkshop_pwa_v1");
@@ -104,6 +116,10 @@ export class MilkShopDB extends Dexie {
     this.version(2).stores({
       ghee_purchases: "++id, sync_uuid, entry_date, created_at",
       ghee_sales: "++id, sync_uuid, entry_date, created_at",
+    });
+    // v3 — dead-letter queue for outbox rows the cloud rejects.
+    this.version(3).stores({
+      sync_failures: "++id, table, failed_at",
     });
   }
 }

@@ -67,19 +67,68 @@ async function enqueue(table: CloudTable, op: "upsert" | "delete", payload: Reco
 }
 
 // ---- Print (browser-native via hidden iframe) ----
-function printViaIframe(html: string): Promise<{ ok: boolean; error?: string }> {
+// ROOT CAUSE of the "blank space above the receipt": `@page { size: 80mm auto }`
+// is INVALID CSS — the `size` descriptor takes either keywords or TWO lengths,
+// never a length plus `auto`. Chrome discards the whole declaration and falls
+// back to the driver's default page (A4/Letter, ~297mm tall), so an 80mm-wide
+// receipt gets laid out on a full-height sheet: the paper the printer feeds is
+// mostly empty, which reads as a huge margin above/below the ink.
+//
+// Fix: render the document in a correctly sized (80mm wide) offscreen iframe,
+// measure the real content height once images have decoded, then inject a
+// VALID two-length `@page { size: 80mm <measured>mm; margin: 0 }` before
+// calling print(). The paper then matches the receipt exactly.
+const PX_PER_MM = 96 / 25.4;
+
+async function waitForImages(doc: Document, timeoutMs = 1500) {
+  const imgs = Array.from(doc.images ?? []);
+  if (imgs.length === 0) return;
+  await Promise.race([
+    Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise<void>(res => {
+      img.addEventListener("load", () => res(), { once: true });
+      img.addEventListener("error", () => res(), { once: true });
+    }))),
+    new Promise<void>(res => setTimeout(res, timeoutMs)),
+  ]);
+}
+
+function printViaIframe(html: string, pageWidthMm?: number): Promise<{ ok: boolean; error?: string }> {
   return new Promise((resolve) => {
     if (typeof document === "undefined") return resolve({ ok: false, error: "No document" });
     const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    // Must have real layout dimensions, otherwise measurement is meaningless.
+    const w = pageWidthMm ? `${pageWidthMm}mm` : "210mm";
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.style.cssText = `position:fixed;left:-10000px;top:0;width:${w};height:400mm;border:0;opacity:0;pointer-events:none`;
     document.body.appendChild(iframe);
     const doc = iframe.contentDocument!;
     doc.open(); doc.write(html); doc.close();
-    const done = () => { setTimeout(() => iframe.remove(), 800); resolve({ ok: true }); };
-    iframe.onload = () => { try { iframe.contentWindow!.focus(); iframe.contentWindow!.print(); } catch { /* ignore */ } done(); };
-    setTimeout(done, 3000);
+    let finished = false;
+    const done = () => { if (finished) return; finished = true; setTimeout(() => iframe.remove(), 1000); resolve({ ok: true }); };
+    const run = async () => {
+      try {
+        await waitForImages(doc);
+        if (pageWidthMm) {
+          // Measure the true ink height and pin the page to it.
+          const body = doc.body;
+          const contentPx = Math.max(body.scrollHeight, body.getBoundingClientRect().height);
+          const heightMm = Math.max(20, Math.ceil(contentPx / PX_PER_MM) + 2);
+          const style = doc.createElement("style");
+          style.textContent = `@page{size:${pageWidthMm}mm ${heightMm}mm;margin:0}html,body{margin:0!important}`;
+          doc.head.appendChild(style);
+        }
+        iframe.contentWindow!.focus();
+        iframe.contentWindow!.print();
+      } catch { /* ignore */ }
+      done();
+    };
+    iframe.onload = () => { void run(); };
+    // Some browsers fire load before doc.write completes; belt & braces.
+    setTimeout(() => { if (!finished) void run(); }, 600);
+    setTimeout(done, 5000);
   });
 }
+
 
 // ---- Settings helpers ----
 async function getSetting(key: string, fallback = ""): Promise<string> {
