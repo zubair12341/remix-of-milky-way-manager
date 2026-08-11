@@ -659,15 +659,14 @@ function buildApi() {
           @page{size:80mm auto;margin:0}
           html,body{margin:0!important;padding:0!important}
           body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:0 3mm 3mm;text-align:center}
-          .logo-wrap{width:24mm;height:24mm;margin:0 auto 1mm;overflow:hidden;display:flex;align-items:center;justify-content:center}
-          .logo-wrap img{width:100%;height:100%;object-fit:cover;object-position:center;transform:scale(1.6)}
+          .logo{max-height:18mm;max-width:55%;object-fit:contain;display:block;margin:0 auto 1mm}
           .inv{display:flex;justify-content:space-between;align-items:baseline;text-align:left;font-size:9pt;font-weight:700;margin-bottom:2mm}
           .inv span:last-child{font-weight:400}
           .amt-box{border:2px solid #000;border-radius:2mm;padding:3mm 2mm;margin:1mm 0}
           .amt{font-size:24pt;font-weight:900;letter-spacing:1px;line-height:1}
           .foot{margin-top:3mm;font-size:8pt;font-style:italic;border-top:1px dashed #000;padding-top:2mm}
         </style></head><body>
-          ${p.logo_data_url ? `<div class="logo-wrap"><img src="${p.logo_data_url}"/></div>` : ""}
+          ${p.logo_data_url ? `<img class="logo" src="${p.logo_data_url}"/>` : ""}
           <div class="inv"><span>Invoice #${p.invoice_no}</span><span>${p.date}</span></div>
           <div class="amt-box"><div class="amt">Rs. ${Number(p.amount).toLocaleString()}</div></div>
           <div class="foot">Designed &amp; developed by Zubair Khan</div>
