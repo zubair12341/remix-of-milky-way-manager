@@ -208,9 +208,20 @@ function Settings() {
                   </Button>
                 </div>
                 <div>Network: <span className={syncState?.online ? "text-success font-semibold" : "text-destructive font-semibold"}>{syncState?.online ? "Online" : "Offline"}</span></div>
+                <div>Pending changes: <span className="font-semibold">{syncState?.pending ?? 0}</span></div>
+                <div>Last push: <span className="font-mono text-xs">{syncState?.lastPushAt ? new Date(syncState.lastPushAt).toLocaleString() : "—"}</span></div>
                 <div>Last pull: <span className="font-mono text-xs">{syncState?.lastPullAt ? new Date(syncState.lastPullAt).toLocaleString() : "—"}</span></div>
                 {syncState?.lastError && <div className="text-destructive">Error: {syncState.lastError}</div>}
-                <p className="text-xs text-muted-foreground">Cloud pull is active. Local→cloud push activates after the UUID migration (Phase 3).</p>
+                {!!syncState?.failed && (
+                  <div className="border border-destructive/40 rounded p-2 space-y-2">
+                    <div className="text-destructive font-semibold">{syncState.failed} record(s) could not be synced and were set aside.</div>
+                    {failures.map(f => (
+                      <div key={f.id} className="text-xs text-muted-foreground">{f.table}: {f.reason}</div>
+                    ))}
+                    <Button size="sm" variant="outline" onClick={async () => { await clearSyncFailures(); setFailures([]); }}>Dismiss</Button>
+                  </div>
+                )}
+
               </div>
             )}
             <Button variant="outline" onClick={doSignOutCloud}><LogOut className="w-4 h-4 mr-2" /> Sign out of cloud</Button>
