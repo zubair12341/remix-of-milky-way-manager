@@ -107,6 +107,8 @@ function printViaIframe(html: string, pageWidthMm?: number): Promise<{ ok: boole
     let started = false;
     const done = () => { if (finished) return; finished = true; setTimeout(() => iframe.remove(), 1000); resolve({ ok: true }); };
     const run = async () => {
+      if (started) return;
+      started = true;
       try {
         await waitForImages(doc);
         if (pageWidthMm) {
