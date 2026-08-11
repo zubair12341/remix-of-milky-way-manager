@@ -708,7 +708,7 @@ function buildApi() {
     print: {
       async receipt(p: { invoice_no: number | string; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
         const html = `<!doctype html><html><head><meta charset="utf-8"><style>
-          @page{size:80mm auto;margin:0}
+          /* page size is injected at print time from measured content height */
           html,body{margin:0!important;padding:0!important}
           body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:0 3mm 3mm;text-align:center}
           .logo{max-height:16mm;max-width:55%;object-fit:contain;display:block;margin:0 auto 1mm}
