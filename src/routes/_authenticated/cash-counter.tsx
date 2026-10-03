@@ -29,21 +29,29 @@ function CashCounter() {
     if (!v || v <= 0) { toast.error(t("invalidAmount")); inputRef.current?.focus(); return; }
     try {
       const row = await api().cash.add(v);
-      const settings = await api().settings.getAll();
-      // Auto silent print
-      const printRes = await api().print.receipt({
-        invoice_no: row.invoice_no, amount: row.amount,
-        date: new Date(row.created_at).toLocaleDateString(),
-        shop_name: settings.shop_name || "Milk Shop",
-        logo_data_url: settings.logo_data_url || "",
-      });
-      if (!printRes.ok) toast.warning(`Saved. Print failed: ${printRes.error ?? ""}`);
-      else toast.success(`#${row.invoice_no} • ${fmtMoney(row.amount)}`);
+      // The sale is complete before printing starts. Clear/refocus immediately so
+      // the cashier can enter the next amount while the native print queue works.
       setLast({ invoice_no: row.invoice_no, amount: row.amount, date: new Date(row.created_at).toLocaleString() });
       setAmount("");
       qc.invalidateQueries({ queryKey: ["cash-recent"] });
       qc.invalidateQueries({ queryKey: ["cash-today"] });
-      inputRef.current?.focus();
+      requestAnimationFrame(() => inputRef.current?.focus());
+      toast.success(`#${row.invoice_no} • ${fmtMoney(row.amount)}`);
+
+      void (async () => {
+        try {
+          const settings = await api().settings.getAll();
+          const printRes = await api().print.receipt({
+            invoice_no: row.invoice_no, amount: row.amount,
+            date: new Date(row.created_at).toLocaleDateString(),
+            shop_name: settings.shop_name || "Milk Shop",
+            logo_data_url: settings.logo_data_url || "",
+          });
+          if (!printRes.ok) toast.warning(`Sale saved. Print failed: ${printRes.error ?? ""}`);
+        } catch (printError: any) {
+          toast.warning(`Sale saved. Print failed: ${printError?.message || "Unknown printer error"}`);
+        }
+      })();
     } catch (e: any) {
       toast.error(e.message || "Failed to save");
     }
