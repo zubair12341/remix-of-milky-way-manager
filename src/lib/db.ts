@@ -737,17 +737,18 @@ function buildApi() {
     },
 
     print: {
-            async receipt(p: { invoice_no: number | string; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
+                  async receipt(p: { invoice_no: number | string; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
         const html = `<!doctype html><html><head><meta charset="utf-8"><style>
+          @page{size:80mm 50mm;margin:0}
           html,body{margin:0!important;padding:0!important}
-          body{width:80mm;font-family:'Courier New',monospace;color:#000;padding:2mm 3mm;text-align:center}
-          .logo{max-height:16mm;max-width:55%;object-fit:contain;display:block;margin:0 auto 1mm}
-          table.inv{width:100%;border-collapse:collapse;text-align:left;font-size:9pt;font-weight:700;margin-bottom:2mm}
+          body{width:80mm;height:50mm;overflow:hidden;font-family:'Courier New',monospace;color:#000;padding:1mm 3mm;text-align:center;box-sizing:border-box}
+          .logo{max-height:12mm;max-width:50%;object-fit:contain;display:block;margin:0 auto 1mm}
+          table.inv{width:100%;border-collapse:collapse;text-align:left;font-size:8pt;font-weight:700;margin-bottom:1mm}
           table.inv td{padding:0}
           table.inv td:last-child{text-align:right;font-weight:400}
-          .amt-box{border:2px solid #000;border-radius:2mm;padding:3mm 2mm;margin:1mm 0}
-          .amt{font-size:24pt;font-weight:900;letter-spacing:1px;line-height:1}
-          .foot{margin-top:3mm;font-size:8pt;font-style:italic;border-top:1px dashed #000;padding-top:2mm}
+          .amt-box{border:2px solid #000;border-radius:2mm;padding:2mm;margin:1mm 0}
+          .amt{font-size:20pt;font-weight:900;letter-spacing:1px;line-height:1}
+          .foot{margin-top:1mm;font-size:7pt;font-style:italic;border-top:1px dashed #000;padding-top:1mm}
         </style></head><body>
           ${p.logo_data_url ? `<img class="logo" src="${p.logo_data_url}"/>` : ""}
           <table class="inv"><tr><td>Invoice #${p.invoice_no}</td><td>${p.date}</td></tr></table>
