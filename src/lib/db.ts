@@ -92,6 +92,28 @@ async function waitForImages(doc: Document, timeoutMs = 1500) {
   ]);
 }
 
+type DesktopPrintBridge = {
+  silentPrint: (payload: { html: string; deviceName?: string }) => Promise<{ ok: boolean; error?: string }>;
+  getPrinters?: () => Promise<PrinterInfo[]>;
+};
+
+function desktopBridge(): DesktopPrintBridge | undefined {
+  if (typeof window === "undefined") return undefined;
+  return (window as unknown as { milkShopDesktop?: DesktopPrintBridge }).milkShopDesktop;
+}
+
+async function printDocument(html: string, pageWidthMm?: number, deviceName?: string): Promise<{ ok: boolean; error?: string }> {
+  const bridge = desktopBridge();
+  if (bridge) {
+    try {
+      return await bridge.silentPrint({ html, deviceName: deviceName || undefined });
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Silent print failed" };
+    }
+  }
+  return printViaIframe(html, pageWidthMm);
+}
+
 function printViaIframe(html: string, pageWidthMm?: number): Promise<{ ok: boolean; error?: string }> {
   return new Promise((resolve) => {
     if (typeof document === "undefined") return resolve({ ok: false, error: "No document" });
@@ -152,7 +174,7 @@ async function allSettings(): Promise<SettingsMap> {
 function buildApi() {
   const d = db();
   return {
-    isElectron: false,
+    isElectron: Boolean(desktopBridge()),
 
     auth: {
       async login(username: string, password: string): Promise<{ ok: boolean; user?: User; error?: string }> {
@@ -207,7 +229,11 @@ function buildApi() {
     settings: {
       async getAll() { return allSettings(); },
       async set(key: string, value: string) { await setSetting(key, String(value ?? "")); return { ok: true }; },
-      async getPrinters(): Promise<PrinterInfo[]> { return []; },
+      async getPrinters(): Promise<PrinterInfo[]> {
+        const bridge = desktopBridge();
+        if (!bridge?.getPrinters) return [];
+        try { return await bridge.getPrinters(); } catch { return []; }
+      },
     },
 
     cash: {
@@ -728,7 +754,8 @@ function buildApi() {
           <div class="amt-box"><div class="amt">Rs. ${Number(p.amount).toLocaleString()}</div></div>
           <div class="foot">Designed &amp; developed by Zubair Khan</div>
         </body></html>`;
-        return printViaIframe(html);
+        const printerName = await getSetting("printer_name", "");
+        return printDocument(html, 80, printerName);
       },
       async gheeReceipt(p: { invoice_no: number | string; qty_kg: number; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
         const kgLabel = `${Number(p.qty_kg || 0).toFixed(3).replace(/\.?0+$/, "")} KG`;
@@ -749,10 +776,17 @@ function buildApi() {
           <div class="amt-box"><div class="amt">Rs. ${Number(p.amount).toLocaleString()}</div></div>
           <div class="foot">Designed &amp; developed by Zubair Khan</div>
         </body></html>`;
-        return printViaIframe(html, 80);
+        const printerName = await getSetting("printer_name", "");
+        return printDocument(html, 80, printerName);
       },
-      async test() { return printViaIframe(`<!doctype html><html><body style="font-family:sans-serif;padding:20px"><h1>Test Print</h1><p>${new Date().toLocaleString()}</p></body></html>`); },
-      async html(html: string) { return printViaIframe(html); },
+      async test() {
+        const printerName = await getSetting("printer_name", "");
+        return printDocument(`<!doctype html><html><body style="font-family:sans-serif;padding:20px"><h1>Test Print</h1><p>${new Date().toLocaleString()}</p></body></html>`, undefined, printerName);
+      },
+      async html(html: string) {
+        const printerName = await getSetting("printer_name", "");
+        return printDocument(html, undefined, printerName);
+      },
     },
 
     data: {
@@ -793,7 +827,7 @@ export function api() {
 // Legacy compatibility export — always false in the PWA build. Kept only so
 // that any stray reference does not break the build; the value is always
 // `false` and callers should treat it as such.
-export const isElectron = () => false;
+export const isElectron = () => Boolean(desktopBridge());
 
 // Re-exported for the sync engine.
 export { getPairing };
