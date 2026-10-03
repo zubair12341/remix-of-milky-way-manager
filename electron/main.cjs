@@ -1,9 +1,33 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("node:path");
+const http = require("node:http");
+const fs = require("node:fs");
 
 let mainWindow;
 let printWindow;
 let printQueue = Promise.resolve();
+let localServer;
+
+function startLocalServer() {
+  if (localServer) return Promise.resolve(localServer.address().port);
+  const root = path.join(__dirname, "..", "dist");
+  const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".woff": "font/woff", ".woff2": "font/woff2" };
+  localServer = http.createServer((req, res) => {
+    const rawPath = decodeURIComponent((req.url || "/").split("?")[0]);
+    let filePath = path.join(root, rawPath === "/" ? "index.html" : rawPath);
+    if (!filePath.startsWith(root)) { res.writeHead(403); return res.end("Forbidden"); }
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) filePath = path.join(root, "index.html");
+    fs.readFile(filePath, (err, data) => {
+      if (err) { res.writeHead(500); return res.end("Unable to load app"); }
+      res.writeHead(200, { "Content-Type": types[path.extname(filePath)] || "application/octet-stream", "Cache-Control": "no-store" });
+      res.end(data);
+    });
+  });
+  return new Promise((resolve, reject) => {
+    localServer.once("error", reject);
+    localServer.listen(0, "127.0.0.1", () => resolve(localServer.address().port));
+  });
+}
 
 function getPrintWindow() {
   if (printWindow && !printWindow.isDestroyed()) return printWindow;
@@ -51,7 +75,7 @@ ipcMain.handle("milkshop:printers", async () => {
   }));
 });
 
-function createMainWindow() {
+async function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -64,11 +88,15 @@ function createMainWindow() {
     },
   });
   const devUrl = process.env.MILKSHOP_DEV_URL;
-  if (devUrl) mainWindow.loadURL(devUrl);
-  else mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
+  if (devUrl) await mainWindow.loadURL(devUrl);
+  else {
+    const port = await startLocalServer();
+    await mainWindow.loadURL(`http://127.0.0.1:${port}/`);
+  }
   mainWindow.once("ready-to-show", () => mainWindow.show());
 }
 
 app.whenReady().then(createMainWindow);
 app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
+app.on("before-quit", () => { if (localServer) localServer.close(); });
 app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createMainWindow(); });
