@@ -50,6 +50,10 @@ function CashCounter() {
           if (!printRes.ok) toast.warning(`Sale saved. Print failed: ${printRes.error ?? ""}`);
         } catch (printError: any) {
           toast.warning(`Sale saved. Print failed: ${printError?.message || "Unknown printer error"}`);
+        } finally {
+          // Native printing can briefly take focus. Restore the amount field once
+          // the print job has finished so the next sale can be typed immediately.
+          requestAnimationFrame(() => inputRef.current?.focus());
         }
       })();
     } catch (e: any) {
