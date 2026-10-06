@@ -41,7 +41,7 @@ function getPrintWindow() {
   return printWindow;
 }
 
-async function silentPrint({ html, deviceName }) {
+async function silentPrint({ html, deviceName, pageSize }) {
   const win = getPrintWindow();
   const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(html)}`;
   await win.loadURL(dataUrl);
@@ -51,7 +51,9 @@ async function silentPrint({ html, deviceName }) {
       printBackground: true,
       deviceName: deviceName || undefined,
       margins: { marginType: "none" },
-      usePrinterDefaultPageSize: true,
+      ...(pageSize
+        ? { pageSize: { width: pageSize.widthMicrons, height: pageSize.heightMicrons } }
+        : { usePrinterDefaultPageSize: true }),
     }, (success, failureReason) => {
       resolve(success ? { ok: true } : { ok: false, error: failureReason || "Print job failed" });
     });
