@@ -93,7 +93,7 @@ async function waitForImages(doc: Document, timeoutMs = 1500) {
 }
 
 type DesktopPrintBridge = {
-  silentPrint: (payload: { html: string; deviceName?: string }) => Promise<{ ok: boolean; error?: string }>;
+  silentPrint: (payload: { html: string; deviceName?: string; pageSize?: { widthMicrons: number; heightMicrons: number } }) => Promise<{ ok: boolean; error?: string }>;
   getPrinters?: () => Promise<PrinterInfo[]>;
 };
 
@@ -102,11 +102,15 @@ function desktopBridge(): DesktopPrintBridge | undefined {
   return (window as unknown as { milkShopDesktop?: DesktopPrintBridge }).milkShopDesktop;
 }
 
-async function printDocument(html: string, pageWidthMm?: number, deviceName?: string): Promise<{ ok: boolean; error?: string }> {
+async function printDocument(html: string, pageWidthMm?: number, deviceName?: string, pageHeightMm?: number): Promise<{ ok: boolean; error?: string }> {
   const bridge = desktopBridge();
   if (bridge) {
     try {
-      return await bridge.silentPrint({ html, deviceName: deviceName || undefined });
+      return await bridge.silentPrint({
+        html,
+        deviceName: deviceName || undefined,
+        pageSize: pageWidthMm && pageHeightMm ? { widthMicrons: pageWidthMm * 1000, heightMicrons: pageHeightMm * 1000 } : undefined,
+      });
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "Silent print failed" };
     }
@@ -741,12 +745,12 @@ function buildApi() {
         const html = `<!doctype html><html><head><meta charset="utf-8"><style>
           @page{size:80mm 50mm;margin:0}
           html,body{margin:0!important;padding:0!important}
-          body{width:80mm;height:50mm;overflow:hidden;font-family:'Courier New',monospace;color:#000;padding:1mm 3mm;text-align:center;box-sizing:border-box}
+          body{width:80mm;height:50mm;overflow:hidden;font-family:'Courier New',monospace;color:#000;padding:1mm 3mm;text-align:center;box-sizing:border-box;break-inside:avoid;page-break-inside:avoid}
           .logo{max-height:12mm;max-width:50%;object-fit:contain;display:block;margin:0 auto 1mm}
           table.inv{width:100%;border-collapse:collapse;text-align:left;font-size:8pt;font-weight:700;margin-bottom:1mm}
           table.inv td{padding:0}
           table.inv td:last-child{text-align:right;font-weight:400}
-          .amt-box{border:2px solid #000;border-radius:2mm;padding:2mm;margin:1mm 0}
+          .amt-box{border:2px solid #000;border-radius:2mm;padding:2mm;margin:1mm 0;break-inside:avoid;page-break-inside:avoid}
           .amt{font-size:20pt;font-weight:900;letter-spacing:1px;line-height:1}
           .foot{margin-top:1mm;font-size:7pt;font-style:italic;border-top:1px dashed #000;padding-top:1mm}
         </style></head><body>
@@ -756,7 +760,7 @@ function buildApi() {
           <div class="foot">Designed &amp; developed by Zubair Khan</div>
         </body></html>`;
         const printerName = await getSetting("printer_name", "");
-        return printDocument(html, 80, printerName);
+        return printDocument(html, 80, printerName, 50);
       },
       async gheeReceipt(p: { invoice_no: number | string; qty_kg: number; amount: number; date: string; shop_name: string; logo_data_url?: string }) {
         const kgLabel = `${Number(p.qty_kg || 0).toFixed(3).replace(/\.?0+$/, "")} KG`;
