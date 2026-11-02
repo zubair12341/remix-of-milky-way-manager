@@ -7,17 +7,31 @@ export type PrintMeta = { shop_name: string; logo_data_url?: string; title: stri
 
 const baseStyles = `
 <style>
-  @page { size: A4; margin: 14mm; }
+  @page { size: 58mm auto; margin: 0; }
+  html, body { width: 58mm; max-width: 58mm; margin: 0; padding: 0; }
+  body { padding: 2mm; overflow-wrap: anywhere; }
+  table { table-layout: fixed; }
+  th, td { overflow-wrap: anywhere; }
+  img { max-width: 100%; }
+  .header { gap: 6px; padding-bottom: 5px; margin-bottom: 7px; }
+  .header img { max-height: 32px; max-width: 32px; }
+  .shop { font-size: 12pt; }
+  .title { font-size: 10pt; margin-top: 4px; }
+  .sub { font-size: 8pt; }
+  .totals, .grid3 { grid-template-columns: 1fr; }
+  .box { padding: 5px; }
+  .box .v { font-size: 9pt; }
+  @media print { html, body { width: 58mm !important; } }
   * { box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: #000; margin: 0; font-size: 11pt; }
   h1, h2, h3 { margin: 0 0 4px; }
-  .header { display: flex; align-items: center; gap: 16px; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 14px; }
+  .header { display: flex; align-items: center; gap: 6px; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 14px; }
   .header img { max-height: 60px; max-width: 80px; object-fit: contain; }
   .shop { font-size: 18pt; font-weight: 800; }
   .title { font-size: 14pt; font-weight: 700; margin-top: 12px; }
   .sub { font-size: 10pt; color: #444; }
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10pt; }
-  th, td { padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: left; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 8pt; }
+  th, td { padding: 3px 2px; border-bottom: 1px solid #ddd; text-align: left; }
   th { background: #f3f3f3; font-weight: 700; }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   tfoot td { font-weight: 800; border-top: 2px solid #000; }
@@ -58,13 +72,13 @@ export async function printDocument(html: string, _thermal = false) {
   // The browser's print confirmation dialog will still appear — expected.
   return new Promise<{ ok: boolean; error?: string }>((resolve) => {
     const iframe = document.createElement("iframe");
-    // Give the frame real A4 layout width — a 0x0 frame lays the document out
+    // Give the frame real 58mm receipt layout width — a 0x0 frame lays the document out
     // at zero width and the printed result does not match the preview.
     iframe.style.position = "fixed";
     iframe.style.left = "-10000px";
     iframe.style.top = "0";
-    iframe.style.width = "210mm";
-    iframe.style.height = "297mm";
+    iframe.style.width = "58mm";
+    iframe.style.height = "300mm";
     iframe.style.opacity = "0";
     iframe.style.border = "0";
     document.body.appendChild(iframe);
